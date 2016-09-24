@@ -5,9 +5,14 @@ use Module::Build::Pluggable (
 );
 my $build = Module::Build::Pluggable->new(
 	module_name => 'Plack::App::WebMySQL',
-	license => 'restrictive',
+	license => 'perl',
 	dist_author => 'MacGyveR <dumb@cpan.org>',
 	dist_abstract => 'WebMySQL web application',
-	create_makefile_pl => 'traditional'
+	create_makefile_pl => 'traditional',
+	meta_merge => {
+		resources => {
+			repository => 'https://github.com/thedumbterminal/Plack-App-WebMySQL'
+		}
+	}
 );
 $build->create_build_script;
