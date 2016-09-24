@@ -7,6 +7,7 @@
 #mt 16/11/2003 2.4	import file multiline single query bug fixed
 #							empty table now supported
 #mt 17/11/2003 2.4	fixed msdos import file bug
+#mt 29/11/2003 2.5	Updated processfile sub to cope with ";" characters in sql commands
 use strict;
 use CGI;
 use DBI;
@@ -340,7 +341,7 @@ if(&getData()){	#get the data from the last page's form
 				else{$error = "You did not specify a field name to remove";}
 			}
 			elsif($form{'action'} eq "managedatabases"){
-				if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'})){
+				if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
 					$form{'databaselist'} = "";
 					foreach(@dbs){	#convert to html format
 						$form{'databaselist'} .= "<tr>\n";
@@ -428,7 +429,7 @@ if(&getData()){	#get the data from the last page's form
 				if($form{'db'} ne ""){
 					if(length($form{'db'}) <= 64){
 						if($form{'db'} =~ m/^\w+$/){
-							if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'})){
+							if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
 								my $exists = 0;
 								foreach(@dbs){
 									if($_ eq $form{'db'}){	#found this database name already
@@ -452,7 +453,7 @@ if(&getData()){	#get the data from the last page's form
 				if($form{'db'} ne ""){
 					if(length($form{'db'}) <= 64){
 						if($form{'db'} =~ m/^\w+$/){
-							if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'})){
+							if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
 								my $exists = 0;
 								foreach(@dbs){
 									if($_ eq $form{'db'}){	#found this database name already
@@ -634,21 +635,24 @@ sub uploadFile{
 sub processFile{
 	my $file = shift;
 	if(open(DUMP, "<dump_uploads/$file")){
-		my $allSql = "";
+		my @allSql;	#this is where all the commands will be stored
+		my $count = 0;	#this counts the commands found
 		while(<DUMP>){
 			chomp $_;
 			$_ =~ s/\r//g;	#get rid of all trace of dos
-			if($_ !~ m/^--/ && $_ ne ""){$allSql .= $_ . " ";}	#read all of the file in
+			if($_ !~ m/^(--|#)/ && $_ ne ""){	#read all of the file in excluding comments and blank lines
+				if($_ =~ m/;$/){	#this a whole command or the end of one
+					$allSql[$count] .= $_;
+					$count++;
+				}
+				else{$allSql[$count] .= $_;}	#it is the first or middle part of a command
+			}
 		}
 		close(DUMP);
-		$allSql =~ s/(\n+)$//g;	#trim any ending newlines etc
-		my $count = 0;
-		foreach(split(/; /, $allSql)){
-			chomp $_;
+		foreach (@allSql){	#execute all of the commands
 			if($_ =~ m/^\w/){	#queries must start with a word
-				if(!&runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "$_;")){last;}
+				if(!&runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $_)){last;}
 			}
-			$count++;
 		}
 		return $count;
 	}
