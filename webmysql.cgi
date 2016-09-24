@@ -1,11 +1,12 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -Tw
 #mysql database web interface
-use strict;
+#use lib "webmysql_includes";
 #use lib "/usr/lib/perl5/site_perl/5.6.0/i586-linux";  #for perl2exe for the mysql module
+use strict;
 use DBI;
-use DBD::mysql::mysql.so
+use DBD::mysql;
 my %formData;
-$formData{'version'} = "1.6";
+$formData{'version'} = "1.7";
 $formData{'action'} = "start";	#default
 $formData{'output'} = "";
 $formData{'database'} = "";
@@ -13,7 +14,8 @@ $formData{'username'} = "";
 $formData{'password'} = "";
 $formData{'server'} = "";
 $formData{'onload'} = "";
-my @matchHow = ("=", ">=", "<=", ">", "<", "!=", "LIKE", "NOT LIKE", "REGEXP");	#how to match input
+my @matchHow = ("=", ">=", "<=", ">", "<", "!=", "LIKE", "REGEXP");	#how to match input
+if(&checkReferer($ENV{''})){
 &get_data;
 if($formData{"action"} eq "Use"){&show_databases;}	#list the available databases
 elsif($formData{"action"} eq "Query"){&show_tables;}	#list the available tables from the current database
@@ -117,7 +119,7 @@ sub show_tables{
 }
 ###########################################################################################
 sub compose_select{
-	my @matchPlus = ("AND", "OR");	#if the wants to use more than one field criteria
+	my @matchPlus = ("OR", "AND");	#if the wants to use more than one field criteria
 	my @fieldNames;
 	my $fieldCount = 0;
 	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
@@ -181,11 +183,11 @@ sub run_select{
 			}
 		}
 		if($crit){$formData{'sql'} .= " WHERE" . $crit;}	#add in the criteria
+		if($formData{'function'} ne "" && $formData{'groupby'} ne ""){$formData{'sql'} .= " GROUP BY " . $formData{'groupby'};}	# use a group by field
 		if($formData{'orderby'} ne ""){	#sort the results
 			$formData{'sql'} .= " ORDER BY $formData{'orderby'}";
 			if($formData{'desc'} eq "on"){$formData{'sql'} .= " DESC";}	#reverse the sort order
 		}
-		if($formData{'function'} ne "" && $formData{'groupby'} ne ""){$formData{'sql'} .= " GROUP BY " . $formData{'groupby'};}	# use a group by field
 		if($formData{'limit'} ne ""){$formData{'sql'} .= " LIMIT $formData{'limit'}";}	#limit the results
 		$formData{'sql'} .= ";";
 		my $query = $dbh -> prepare($formData{'sql'});
@@ -267,7 +269,7 @@ sub show_join_tables{
 }
 ###########################################################################################
 sub compose_join{
-	my @matchPlus = ("AND", "OR");	#if the wants to use more than one field criteria
+	my @matchPlus = ("OR", "AND");	#if the wants to use more than one field criteria
 	my @joinHow = ("LEFT JOIN", "RIGHT JOIN");	#how to join the tables
 	my @sides = ("left", "right");	#join critera
 	my @fieldNames;
@@ -382,11 +384,11 @@ sub run_join{
 			}
 		}
 		if($crit){$formData{'sql'} .= " WHERE" . $crit;}	#add in the criteria
+		if($formData{'function'} ne "" && $formData{'groupby'} ne ""){$formData{'sql'} .= " GROUP BY " . $formData{'groupby'};}	# use a group by field
 		if($formData{'orderby'} ne ""){	#sort the results
 			$formData{'sql'} .= " ORDER BY $formData{'orderby'}";
 			if($formData{'desc'} eq "on"){$formData{'sql'} .= " DESC";}	#reverse the sort order
 		}
-		if($formData{'function'} ne "" && $formData{'groupby'} ne ""){$formData{'sql'} .= " GROUP BY " . $formData{'groupby'};}	# use a group by field
 		if($formData{'limit'} ne ""){$formData{'sql'} .= " LIMIT $formData{'limit'}";}	#limit the results
 		$formData{'sql'} .= ";";
 		my $query = $dbh -> prepare($formData{'sql'});
