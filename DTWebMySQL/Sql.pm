@@ -5,7 +5,7 @@ BEGIN {
 	use DTWebMySQL::Main;
    use Exporter();
 	@ISA = qw(Exporter);
-   @EXPORT = qw(testConnect getTables getFields getDatabases runQuery getTableRows runNonSelect);
+   @EXPORT = qw(testConnect getTables getFields getDatabases runQuery getTableRows runNonSelect getVariable);
 }
 ############################################################################################################
 sub testConnect{	#tests if we can connect to the mysql server
@@ -151,7 +151,24 @@ sub runNonSelect{
 	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
 	return undef;
 }
+##########################################################################################################
+sub getVariable{	#returns a server variable
+	my($host, $user, $password, $database, $var) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
+	if($dbh){
+		my $value = "";
+		my $query = $dbh -> prepare("SHOW VARIABLES LIKE '$var';");
+		if($query -> execute()){
+			(undef, $value) = $query -> fetchrow_array();
+			$query -> finish();
+		}
+		else{$error = "Cant retrieve variable for $var: " . $dbh -> errstr;}
+		$dbh -> disconnect();
+		if(!$error){return $value;}	#send back the fields to the calling sub
+	}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return "";
+}
 ###############################################################################
 return 1;
 END {}
-

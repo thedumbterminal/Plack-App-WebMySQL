@@ -1,8 +1,8 @@
-                                       WebMYSQL v2.5
+                                       WebMYSQL v2.6
                                  (Web based MySQL interface)
                                        --------------
 
-Copyright 2003 Dumb Terminal Creations <enquiries@thedumbterminal.co.uk>
+Copyright 2004 Dumb Terminal Creations <enquiries@thedumbterminal.co.uk>
 This program is free software; you may redistribute it in it's original format.
 
 DISCLAIMER OF WARRANTY
@@ -21,7 +21,8 @@ INSTALLATION
 4)Make sure the webmysql executable is chmoded to 0755.
 5)Make sure the "keys" directory in the "cgi-bin" is writeable by the webserver. Chmod to 0777 for testing if in doubt.
 6)Make sure the "dump_uploads" directory in the "cgi-bin" is writeable by the webserver. Chmod to 0777 for testing if in doubt.
-7)Web browse to http://www.yourserver.net/cgi-bin/webmysql-x/webmysql.
+7)Make sure the "dump_downloads" directory in the "cgi-bin" is writeable by the webserver. Chmod to 0777 for testing if in doubt.
+8)Web browse to http://www.yourserver.net/cgi-bin/webmysql-x/webmysql.
 
 
 CUSTOMISING

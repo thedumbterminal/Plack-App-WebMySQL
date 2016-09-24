@@ -8,6 +8,8 @@
 #							empty table now supported
 #mt 17/11/2003 2.4	fixed msdos import file bug
 #mt 29/11/2003 2.5	Updated processfile sub to cope with ";" characters in sql commands
+#mt 14/01/2004	2.6	Added mysqldump export support
+#							improved processFile sub to do only one db connect, much faster now
 use strict;
 use CGI;
 use DBI;
@@ -541,6 +543,18 @@ if(&getData()){	#get the data from the last page's form
 				}
 				else{$error = "Table name contains invalid characters";}				
 			}
+			elsif($form{'action'} eq "exportdump"){	#send the dump file to the browser
+				&createDumpFile();	#make the export file
+				if(!$error){	#display an error message instead of the dump file
+					if(open(EXPORT, "<dump_downloads/$form{'key'}.sql")){	#able to read the export file
+						print "Content type: application/oct-stream\n\n";	#tell the browser it's a binary file
+						while(<EXPORT>){print;}	#send the whole file to the browser
+						close(EXPORT);
+					}
+					else{$error = "Unable to read export file: $!";}
+				}
+				unlink("dump_downloads/$form{'key'}.sql");	#remove temp file
+			}
 			else{$error = "Invalid action: $form{'action'}";}	#a strange action has been found
 		}
 		else{$form{'action'} = "login";}	#send to the starting page if no key has been given, or not logging in
@@ -557,7 +571,7 @@ if(&getData()){	#get the data from the last page's form
 		else{$form{'action'} = "login";}	#display the starting page
 	}
 }
-&parsePage($form{'action'});
+if($form{'action'} ne "exportdump" || $error){&parsePage($form{'action'});}	#only show a html template if we are not outputting text etc.
 exit(0);
 ##################################################################################################################
 sub composeSelect{	#generates the sql code for a select query
@@ -649,12 +663,19 @@ sub processFile{
 			}
 		}
 		close(DUMP);
-		foreach (@allSql){	#execute all of the commands
-			if($_ =~ m/^\w/){	#queries must start with a word
-				if(!&runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $_)){last;}
+		my $dbh = DBI -> connect("DBI:mysql:database=$form{'database'};host=$form{'host'}", $form{'user'}, $form{'password'});	#connect once incase we need to change databases
+		if($dbh){
+			foreach (@allSql){	#execute all of the commands
+				if($_ =~ m/^\w/){	#queries must start with a word
+					if(!$dbh -> do($_)){	#throw an error and end the loop if there is a problem with the query
+						$error = "Problem with query: " . $dbh -> errstr;
+						last;
+					}
+				}
 			}
+			return $count;
 		}
-		return $count;
+		else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
 	}
 	else{$error = "Could not read dump file: $0";}
 	return undef;
@@ -690,4 +711,52 @@ sub createInsertForm{
 	}
 	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
 	return undef;
+}
+##################################################################################################################
+sub createDumpFile{
+	if(open(EXPORT, ">dump_downloads/$form{'key'}.sql")){	#able to create the export file
+		print EXPORT "#WebMySQL $version dump\n\n";
+		print EXPORT "#Host: $form{'host'}\n";
+		print EXPORT "#Database: $form{'database'}\n";
+		print EXPORT "#Server version: " . &getVariable($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "version") . "\n\n";
+		print EXPORT "CREATE DATABASE IF NOT EXISTS $form{'database'};\n";
+		print EXPORT "USE $form{'database'};\n";
+		if(my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
+			my $dbh = DBI -> connect("DBI:mysql:database=$form{'database'};host=$form{'host'}", $form{'user'}, $form{'password'});
+			if($dbh){
+				for(my $tCount = 0; $tCount <= $#tables; $tCount++){	#work through all of the tables
+					print EXPORT "\n#Table structure for table '$tables[$tCount]'\n";
+					my $query = $dbh -> prepare("SHOW CREATE TABLE $form{'database'}.$tables[$tCount];");
+					if($query -> execute()){
+						my(undef, $creation) = $query -> fetchrow_array();
+						$query -> finish();
+						print EXPORT "$creation;\n";
+					}
+					else{$error = "Cant retrieve creation details $tables[$tCount] table: " . $dbh -> errstr;}
+					print EXPORT "\n#Dumping data for table '$tables[$tCount]'\n";
+					$query = $dbh -> prepare("SELECT * FROM $tables[$tCount];");
+					if($query -> execute()){
+						while(my @fields = $query -> fetchrow_array()){	#print a row at a time
+							print EXPORT "INSERT INTO $tables[$tCount] VALUES(";
+							for(my $f = 0; $f <= $#fields; $f++){	#loop over each field
+								print EXPORT "'";
+								if(defined($fields[$f])){
+									$fields[$f] =~ s/'/\\'/g;	#so field values dont break out of the surrounding quotes
+									print EXPORT $fields[$f];}	#only print the value if its something
+								print EXPORT "'";
+								if($f < $#fields){print EXPORT ", ";}	#print the field separator
+							}
+							print EXPORT ");\n";
+						}
+						$query -> finish();
+					}
+								
+				}
+				$dbh -> disconnect();
+			}
+			else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+		}
+		close(EXPORT);
+	}
+	else{$error = "Unable to create export file: $!";}
 }

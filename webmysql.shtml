@@ -16,7 +16,7 @@
                         <p>
 									A web interface to a <a href="http://www.mysql.com" target="_blank">MySQL</a> database server.<br>
 									For a screenshot, please click <a href="webmysql-screenshot.jpg" target="_blank">here</a> (36k).
-									Also a <a href="/cgi-bin/webmysql-2.5/webmysql.cgi" target="_blank">fully working demo</a> is available, you will
+									Also a <a href="/cgi-bin/webmysql-2.6/webmysql.cgi" target="_blank">fully working demo</a> is available, you will
 									need to supply your own MySQL connection details to login.
                         </p>
                         <h2>Features</h2>
@@ -35,7 +35,7 @@
                               <li>Advanced query options such as LIMIT, DISTINCT and GROUP</li>
                               <li>Fully customisable look and feel</li>
                               <li>HTML results or downloadable CSV file</li>
-                              <li>mysqldump file import</li>
+                              <li>mysqldump file import and export</li>
 										<li>Empty databases and tables</li>
                            </ul>
                         </p>
@@ -67,6 +67,11 @@
 						<tr>
 							<td>
                         <p>
+									<b>Version 2.6</b>&nbsp;&nbsp;&nbsp;(14th January 2004)
+									<dir>
+										Can now export in mysqldump format.<br>
+										mysqldump file import improved.
+									</dir>
 									<b>Version 2.5</b>&nbsp;&nbsp;&nbsp;(29th November 2003)
 									<dir>
 										Database listing fixed if &quot;SHOW DATABASES&quot; command disabled for user.
@@ -139,7 +144,8 @@
 							<td>
                         <table summary="downloads" width="100%">
 									<tr bgcolor="#CCCCCC"><th>Version</th><th>Size</th><th>Date</th><th>Notes</th></tr>
-									<tr><td><a href="files/webmysql-2.5.tar.bz2">2.5</a></td><td>664k</td><td>29/11/2003</td><td>(Latest), no CSV support</td></tr>
+									<tr><td><a href="files/webmysql-2.6.tar.bz2">2.6</a></td><td>663k</td><td>14/01/2004</td><td>(Latest), no CSV support</td></tr>
+									<tr><td><a href="files/webmysql-2.5.tar.bz2">2.5</a></td><td>664k</td><td>29/11/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-2.4.tar.bz2">2.4</a></td><td>659k</td><td>16/11/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-2.3.tar.bz2">2.3</a></td><td>662k</td><td>29/09/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-2.2.tar.bz2">2.2</a></td><td>585k</td><td>30/06/2003</td><td>no CSV support</td></tr>
