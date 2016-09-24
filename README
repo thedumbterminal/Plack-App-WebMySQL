@@ -1,0 +1,35 @@
+                                       WebMYSQL v1.42
+                                 (Web based MySQL interface)
+                                       --------------
+
+Copyright 2001 Dumb Terminal Creations <enquiries@thedumbterminal.co.uk>
+This program is free software; you may redistribute it in it's original format.
+
+DISCLAIMER OF WARRANTY
+THIS SOFTWARE AND THE ACCOMPANYING FILES ARE SOLD "AS IS" AND WITHOUT WARRANTIES
+AS TO PERFORMANCE OR MERCHANTABILITYOR ANY OTHER WARRANTIES WHETHER EXPRESSED OR IMPLIED.
+
+Please view the file "webmysql.html" for features or visit http://www.thedumbterminal.co.uk
+
+
+INSTALLATION
+
+1)Extract the contents of the "webmysql-x.tar.gz" compressed file to a temporary directory.
+2)Move the all the contents of the "cgi-bin" subdirectory to your webserver's cgi-bin.
+3)move the image file in the "htdocs" subdirectory to your webservers document root (the same place your sites starting page is in).
+4)WebMySQL expects the perl mysql module (downloadable from www.mysql.com) in the following directory:
+
+	/usr/lib/perl5/site_perl/5.6.0/i586-linux/DBD
+
+If this is not the case on your server please create a symlink from your perl location to this one.
+(you do not have to be using perl 5.6.0 )
+5)Make sure the webmysql executable is chmoded to 0755.
+5)Web browse to http://www.yourserver.net/cgi-bin/webmysql.
+
+CUSTOMISING
+
+Any of the html files in the "webmysql_templates" subdirectory may be modified. Please do not rename them or alter the comments in the page
+as these are used as placeholders for the program. You may however move the location of the placeholders within the page.
+
+BUGS
+Any bugs found please report to enquiries@thedumbterminal.co.uk.

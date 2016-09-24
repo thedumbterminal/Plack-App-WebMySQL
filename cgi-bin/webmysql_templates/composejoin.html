@@ -1,0 +1,67 @@
+<html>
+	<head><title>WebMySQL <!--version-->: <!--action--></title></head>
+	<body bgcolor="#FFFFFF" background="/webmysql_back.jpg">
+      <center>
+		   <h1>Compose Join-Select Query for <!--table0-->:</h1>
+		   <form action="<!--self-->" method="post">
+			   <input type="hidden" name="action" value="runjoin">
+			   <input type="hidden" name="username" value="<!--username-->">
+			   <input type="hidden" name="password" value="<!--password-->">
+			   <input type="hidden" name="server" value="<!--server-->">
+			   <input type="hidden" name="database" value="<!--database-->">
+   	      <input type="hidden" name="totalfields" value="<!--totalfields-->">
+            <!--chosentables-->
+   			<table align="center" bgcolor="#8899DD" width="75%">
+               <tr>
+                  <td>
+   		            <table border="1" align="center" width="100%">
+                        <tr>
+					            <th valign="top" bgcolor="#7777BB">SELECT</th>
+					            <td>
+                              <!--showfields-->
+					            </td>
+				            </tr>
+                        <tr>
+                        <!--joinvalues-->
+				            <tr>
+					            <th valign="top" bgcolor="#7777BB">WHERE</th>
+					            <td>
+                              <!--critfields-->
+					            </td>
+				            </tr>
+                     </table>
+                 </td>
+               </tr>
+            </table>
+            <br>
+            <p>Advanced query options.</p>
+   			<table align="center" bgcolor="#8899DD">
+               <tr>
+                  <td>
+            		   <table border="1" align="center">
+				            <tr><th bgcolor="#7777BB">DISTINCT</th><td><input type="checkbox" name="distinct"></td></tr>
+                        <tr>
+                           <th bgcolor="#7777BB">ORDER BY</th>
+                           <td>
+                              <select name="orderby">
+                                 <option value=""></option>
+                                    <!--orderbyoptions-->
+                              </select>
+                              <input type="checkbox" name="desc">DESC
+                           </td>
+                        </tr>
+				            <tr><th bgcolor="#7777BB">LIMIT</th><td><input type="text" name="limit" size="5"></td></tr>
+				            <tr><th bgcolor="#7777BB">OUTPUT</th><td><input checked type="radio" name="output" value="html">HTML <input type="radio" name="output" value="csv">CSV</td></tr>
+                     </table>
+                  </td>
+               </tr>
+            </table>
+			   <br>
+			   <table align="center" bgcolor="#8899DD">
+				   <tr><th><input type="submit" value="Run Join-Select"></th></tr>
+			   </table>
+		   </form>
+      </center>
+	</body>
+</html>
+
