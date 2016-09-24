@@ -1,4 +1,4 @@
-                                       WebMYSQL v1.5
+                                       WebMYSQL v1.6
                                  (Web based MySQL interface)
                                        --------------
 
@@ -17,13 +17,7 @@ INSTALLATION
 1)Extract the contents of the "webmysql-x.tar.gz" compressed file to a temporary directory.
 2)Move the all the contents of the "cgi-bin" subdirectory to your webserver's cgi-bin.
 3)move the image file in the "htdocs" subdirectory to your webservers document root (the same place your sites starting page is in).
-4)WebMySQL expects the perl mysql module (downloadable from www.mysql.com) in the following directory:
-
-	/usr/lib/perl5/site_perl/5.6.0/i586-linux/DBD
-
-If this is not the case on your server please create a symlink from your perl location to this one.
-(you do not have to be using perl 5.6.0 )
-5)Make sure the webmysql executable is chmoded to 0755.
+4)Make sure the webmysql executable is chmoded to 0755.
 5)Web browse to http://www.yourserver.net/cgi-bin/webmysql.
 
 CUSTOMISING

@@ -2,25 +2,25 @@
 	<head><title>WebMySQL <!--version-->: <!--action--></title></head>
 	<body bgcolor="#FFFFFF" background="/webmysql_back.jpg">
       <center>
-         <h1>Available Databases</h1>
-         <p>Please select the database you wish to use.</p>
-		   <form action="<!--self-->" method="post">
-			   <input type="hidden" name="action" value="refresh">
+		   <h1><!--database--> Database Tables</h1>
+         <p>Please chose the table you wish to query from.</p>
+         <form action="<!--self-->" method="POST">
 			   <input type="hidden" name="username" value="<!--username-->">
 			   <input type="hidden" name="password" value="<!--password-->">
 			   <input type="hidden" name="server" value="<!--server-->">
-			   <table align="center" bgcolor="#8899DD">
+			   <input type="hidden" name="database" value="<!--database-->">
+   			<table align="center" bgcolor="#8899DD">
                <tr>
                   <td>
          			   <table align="center" border="1">
-                        <!--databases-->
+                        <!--tables-->
 			            </table>
                   </td>
                </tr>
             </table>
 			   <br>
-			   <table align="center" bgcolor="#8899DD">
-				   <tr><th><input type="submit" value="Use"></th></tr>
+      	   <table align="center" bgcolor="#8899DD">
+				   <tr><th><input type="submit" name="action" value="Describe"> <input type="submit" name="action" value="Select"> <input type="submit" name="action" value="Join-Select"></th></tr>
 			   </table>
 		   </form>
       </center>

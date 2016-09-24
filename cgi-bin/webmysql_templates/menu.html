@@ -1,0 +1,25 @@
+<html>
+	<head>
+		<title>WebMySQL <!--version-->: <!--action--></title>
+	</head>
+	<body bgcolor="#8899DD">
+  		<form action="<!--self-->" method="POST" target="main">
+			<input type="hidden" name="username" value="<!--username-->">
+			<input type="hidden" name="password" value="<!--password-->">
+			<input type="hidden" name="server" value="<!--server-->">
+			<input type="hidden" name="database" value="<!--database-->">
+         <table border="0" width="100%">
+	         <tr>
+					<td>
+						<b>User:</b> <!--username-->@<!--server--><br>
+						<b>Database:</b> <!--database-->
+					</td>
+					<th bgcolor="#7777BB"><input type="submit" name="action" value="Connect"></td>
+					<th bgcolor="#7777BB"><input type="submit" name="action" value="Use"></td>
+  		         <th bgcolor="#7777BB"><input type="submit" name="action" value="Show"></td>
+  					<th bgcolor="#7777BB"><input type="submit" name="action" value="Query"></td>
+				</tr>
+  			</table>
+  		</form>
+	</body>
+</html>

@@ -2,9 +2,9 @@
 	<head><title>WebMySQL <!--version-->: <!--action--></title></head>
 	<body bgcolor="#FFFFFF" background="/webmysql_back.jpg">
       <center>
-		   <h1>Compose Select Query for <!--table-->:</h1>
+		   <h1>Compose Select query for <!--table-->:</h1>
          <p>Chose your criteria to filter the results.</p>
-         <form action="<!--self-->" method="post">
+         <form action="<!--self-->" method="POST" target="_blank">
 			   <input type="hidden" name="action" value="runselect">
 			   <input type="hidden" name="username" value="<!--username-->">
 			   <input type="hidden" name="password" value="<!--password-->">
@@ -33,7 +33,46 @@
                </tr>
             </table>
             <br>
-            <p>Advanced query options.</p>
+            <p>Grouping options.</p>
+   			<table align="center" bgcolor="#8899DD">
+               <tr>
+                  <td>
+            		   <table border="1" align="center">
+                        <tr>
+                           <th bgcolor="#7777BB">Function</th>
+                           <td>
+                              <select name="function">
+                                 <option value=""></option>
+                                 <option value="MIN">MIN</option>
+                                 <option value="MAX">MAX</option>
+                                 <option value="COUNT">COUNT</option>
+                                 <option value="AVG">AVG</option>
+                                 <option value="SUM">SUM</option>
+                                 <option value="STD">STD</option>
+                                 <option value="BIT_OR">BIT_OR</option>
+                                 <option value="BIT_AND">BIT_AND</option>
+                              </select>
+                              <select name="functionfield">
+                                 <option value=""></option>
+												<!--fieldlist-->
+                              </select>
+                           </td>
+                        </tr>
+				            <tr>
+									<th bgcolor="#7777BB">GROUP BY</th>
+									<td>
+                              <select name="groupby">
+                                 <option value=""></option>
+											<!--fieldlist-->
+                              </select>
+									</td>
+								</tr>
+                     </table>
+                  </td>
+               </tr>
+            </table>
+            <br>
+            <p>Extra query options.</p>
    			<table align="center" bgcolor="#8899DD">
                <tr>
                   <td>
