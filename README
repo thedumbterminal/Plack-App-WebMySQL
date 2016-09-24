@@ -1,4 +1,4 @@
-                                       WebMYSQL v2.1
+                                       WebMYSQL v2.2
                                  (Web based MySQL interface)
                                        --------------
 
@@ -19,7 +19,8 @@ INSTALLATION
 3)Move the directory "webmysql-x" in the "htdocs" subdirectory to your webservers document root (the same place your sites starting page is in).
 4)Make sure the webmysql executable is chmoded to 0755.
 5)Make sure the "keys" directory in the "cgi-bin" is writeable by the webserver. Chmod to 0777 for testing if in doubt.
-6)Web browse to http://www.yourserver.net/cgi-bin/webmysql-x/webmysql.
+6)Make sure the "dump_uploads" directory in the "cgi-bin" is writeable by the webserver. Chmod to 0777 for testing if in doubt.
+7)Web browse to http://www.yourserver.net/cgi-bin/webmysql-x/webmysql.
 
 
 CUSTOMISING
@@ -31,4 +32,5 @@ You may also change the name of the webmysql program itself, this should be done
 
 
 BUGS
+Some webservers do not like CGI executables with no extension, if you see the binary printed to your browser just add a extension of ".cgi".
 Any bugs found please report to enquiries@thedumbterminal.co.uk.

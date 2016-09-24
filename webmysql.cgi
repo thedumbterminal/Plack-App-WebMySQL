@@ -4,8 +4,11 @@ use strict;
 use CGI;
 use DBI;
 use DBD::mysql;
-my %form;	#this user's data
-my $error;	#error flag;
+use DTWebMySQL::Main;
+use DTWebMySQL::Key;
+use DTWebMySQL::General;
+use DTWebMySQL::Sql;
+&expireKeys;	#remove old keys from server
 if(&getData()){	#get the data from the last page's form
 	if($form{'key'}){
 		if(&readKey($form{'key'})){	#read the server side cookie for state
@@ -191,6 +194,7 @@ if(&getData()){	#get the data from the last page's form
 								delete $form{'creationfnames'};
 								delete $form{'creationftypes'};
 								delete $form{'creationfsizes'};
+								delete $form{'creationfnull'};
 								$form{'currentfields'} = "";
 								$form{'removefields'} = "";
 								&updateKey($form{'key'});
@@ -215,15 +219,19 @@ if(&getData()){	#get the data from the last page's form
 						}
 					}
 					if(!$found){
+						if(defined($form{'fnull'}) && $form{'fnull'} eq "on"){$form{'fnull'} = "Y";}
+						else{$form{'fnull'} = "N";}
 						if(!exists($form{'creationfnames'})){
 							$form{'creationfnames'} = $form{'fname'};
 							$form{'creationftypes'} = $form{'ftype'};
 							$form{'creationfsizes'} = $form{'fsize'};
+							$form{'creationfnulls'} = $form{'fnull'};
 						}
 						else{
 							$form{'creationfnames'} .= "¬$form{'fname'}";
 							$form{'creationftypes'} .= "¬$form{'ftype'}";
 							$form{'creationfsizes'} .= "¬$form{'fsize'}";
+							$form{'creationfnulls'} .= "¬$form{'fnull'}";
 						}	#append
 						&updateKey($form{'key'});
 						$form{'currentfields'} = &getCreationFields();
@@ -242,13 +250,15 @@ if(&getData()){	#get the data from the last page's form
 					my @names = split(/¬/, $form{'creationfnames'});
 					my @types = split(/¬/, $form{'creationftypes'});
 					my @sizes = split(/¬/, $form{'creationfsizes'});
+					my @nulls = split(/¬/, $form{'creationfnulls'});
 					for(my $count = 0; $count <= $#names; $count++){
 						$sql .= "$names[$count] $types[$count]";
-						if($sizes[$count] > 0){$sql .= "($sizes[$count])";}	#include size for this field
+						if($sizes[$count] ne ""){$sql .= "($sizes[$count])";}	#include size for this field
+						if($nulls[$count] eq "N"){$sql .= " NOT NULL";}	#this field is not null
 						if($count < $#names){$sql .= ", ";}
 					}
 					$sql .= ");";
-					#print STDERR "$sql\n";
+					print STDERR "$sql\n";
 					$form{'queryrecords'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $sql);
 				}
 				else{$error = "This table has no fields yet";}
@@ -258,6 +268,7 @@ if(&getData()){	#get the data from the last page's form
 					my @names = split(/¬/, $form{'creationfnames'});
 					my @types = split(/¬/, $form{'creationftypes'});
 					my @sizes = split(/¬/, $form{'creationfsizes'});
+					my @nulls = split(/¬/, $form{'creationfnulls'});
 					$form{'creationfnames'} = "";
 					$form{'creationftypes'} = "";
 					$form{'creationfsizes'} = "";
@@ -267,11 +278,13 @@ if(&getData()){	#get the data from the last page's form
 								$form{'creationfnames'} .= $names[$count];
 								$form{'creationftypes'} .= $types[$count];
 								$form{'creationfsizes'} .= $sizes[$count];
+								$form{'creationfnulls'} .= $nulls[$count];
 							}
 							else{
 								$form{'creationfnames'} .= "¬$names[$count]";
 								$form{'creationftypes'} .= "¬$types[$count]";
 								$form{'creationfsizes'} .= "¬$sizes[$count]";
+								$form{'creationfnulls'} .= "¬$nulls[$count]";
 							}
 						}
 					}
@@ -279,6 +292,7 @@ if(&getData()){	#get the data from the last page's form
 						delete $form{'creationfnames'};
 						delete $form{'creationftypes'};
 						delete $form{'creationfsizes'};
+						delete $form{'creationfnulls'};
 					}
 					&updateKey($form{'key'});
 					$form{'currentfields'} = &getCreationFields();
@@ -392,6 +406,21 @@ if(&getData()){	#get the data from the last page's form
 				}
 				else{$error = "You did not enter a name for the new database";}
 			}
+			elsif($form{'action'} eq "importdumpform"){}	#just display template
+			elsif($form{'action'} eq "importdump"){
+				my @parts = split(/\\/, $form{'dumpfile'});	#ms browser fix
+				my $file = $parts[$#parts];
+				if($file){
+					if($file =~ m/^(\w|\.|\-|\_)+$/){	#make sure filename is not silly
+						if(&uploadFile($file)){
+							$form{'commands'} = &processFile($file);	#execute the sql statements and count them
+							unlink("dump_uploads/$file");
+						}
+					}
+					else{$error = "Dumpfile name contains invalid characters";}
+				}
+				else{$error = "You did not select a dumpfile to import";}
+			}
 			else{$error = "Invalid action: $form{'action'}";}	#a strange action has been found
 		}
 		&parsePage($form{'action'});
@@ -403,185 +432,6 @@ if(&getData()){	#get the data from the last page's form
 }
 else{&parsePage("error");}
 exit(0);
-###############################################################################################################
-sub getData{	#gets cgi form data into a hash
-	my $cgi = CGI::new();
-	foreach($cgi -> param()){
-		if($cgi -> param($_) !~ m/\;/){
-			$form{$_} = $cgi -> param($_);
-		}
-		else{
-			$error = "One of the values submitted from the last page contained invalid characters";
-			return 0;
-		}
-		#print STDERR "$_ = $form{$_}\n";
-	}	#save the form data to a hash
-	return 1;
-}
-###############################################################################################################
-sub createKey{	#creates a new server side cookie
-	my $key = time;
-	if(!-e "keys/$key"){	#key does not exist already
-		if(open(COOKIE, ">keys/$key")){close(COOKIE);}
-		else{$error = "Could not create session file: $!";}
-		return $key;
-	}
-	else{$error = "New session already exists";}
-	return undef;	#must of got an error somewhere in this sub
-}
-###############################################################################################################
-sub readKey{	#read the contents of a server side cookie back into the form hash
-	if(open(COOKIE, "<keys/$_[0]")){
-		while(<COOKIE>){
-			if(m/^([A-Z]+) = (.+)$/){
-				#print STDERR "$0: cookie line: $1 = $2\n";
-				$form{lc($1)} = $2;
-			}	#store the valid lines
-			else{print STDERR "$0: Ignoring invalid session file line: $_\n";}	#log warning, not really a problem
-		}
-		close(COOKIE);
-		return 1;	#everything ok
-	}
-	else{$error = "Cant read session file: $!";}
-	return 0;
-}
-###############################################################################################################
-sub updateKey{	#saves last form's data, overwriting the existing key file
-	$_[0] =~ m/^(\d+)$/;	#untaint
-	my @wanted = ("database", "password", "host", "user", "type", "fields", "criteria", "tables", "creationfnames", "creationftypes", "creationfsizes", "db");
-	if(open(COOKIE, ">keys/$1")){
-		foreach my $name (keys %form){
-			my $found = 0;
-			foreach(@wanted){	#dont save unwanted elements
-				if($name eq $_){
-					$found = 1;
-					last;
-				}
-			}
-			if($found){print COOKIE uc($name) . " = " . $form{$name} . "\n";}	#save this hash element
-		}
-		close(COOKIE);
-		return 1;	#everything ok
-	}
-	else{$error = "Cant write session file: $!";}
-	return 0;
-}
-##############################################################################################################
-sub deleteKey{
-	$_[0] =~ m/^(\d+)$/;	#untaint
-	unlink("keys/$1");
-}
-###############################################################################################################
-sub replace{	#make sure we dont get any undefined values when replacing template placeholders
-	if(defined($form{$_[0]})){return $form{$_[0]};}	#return hash value
-	else{
-		print STDERR "$0: $_[0] is undefined in placeholder replace\n";
-		return "";	#return nothing
-	}
-}
-###############################################################################################################
-sub parsePage{	#displays a html page
-	my $page = shift;
-	my $version = "2.1";	#version of this code
-	print "Content-type: text/html\n\n";
-	if($error){	#an error has not been encountered
-		$page = "error";
-		print STDERR "$0: $error\n";	#log this error too
-	}
-	if(open(TEMPLATE, "<templates/$page.html")){
-		while(<TEMPLATE>){	#read the file a line at a time
-			$_ =~ s/<!--self-->/$ENV{'SCRIPT_NAME'}/g;	#replace the name for this script
-			$_ =~ s/<!--server-->/$ENV{'HTTP_HOST'}/g;	#replace webserver name
-			$_ =~ s/<!--error-->/$error/g;	#replace the error message
-			$_ =~ s/<!--version-->/$version/g;	#replace version number
-			$_ =~ s/<!--(\w+)-->/&replace($1)/eg;	#replace the placeholders in the template
-         $_ =~ s|</body>|<br><br>\n<div align="center"><font size="2">&copy; <a href="http://www.thedumbterminal.co.uk" target="_blank">Dumb Terminal Creations</a></font></div>\n</body>|;
-			print;
-		}
-		close(TEMPLATE);
-	}
-	else{
-		print << "(NO TEMPLATE)";
-<html>
-	<body>
-		Could not open HTML template: webmysql-$version/templates/$page.html
-	</body>
-</html>
-(NO TEMPLATE)
-	}
-}
-############################################################################################################
-sub testConnect{	#tests if we can connect to the mysql server
-	my($host, $user, $password, $database) = @_;
-	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
-	if($dbh){
-		$dbh -> disconnect();
-		return 1;
-	}
-	else{
-		$error = "Cant connect to MySQL server: " . $DBI::errstr;
-		return 0;
-	}
-}
-##########################################################################################################
-sub getTables{	#returns an array of tables for the current database
-	my($host, $user, $password, $database) = @_;
-	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
-	if($dbh){
-		my $query = $dbh -> prepare("SHOW TABLES;");
-		if($query -> execute()){
-			my @tables;
-			while(my $table = $query -> fetchrow_array()){push(@tables, $table);}	#create an array of the tables found
-			$query -> finish();
-			return @tables;	#send back the tables to the calling sub
-		}
-		else{$error = "Cant find table list: " . $dbh -> errstr;}
-		$dbh -> disconnect();
-	}
-	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
-	return undef;
-}
-##########################################################################################################
-sub getFields{	#returns an array of tables for the current database
-	my($host, $user, $password, $database, $tables) = @_;
-	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
-	if($dbh){
-		my @fields;
-		foreach(split(/, /, $tables)){	#get the fields for all of the selected tables
-			my $query = $dbh -> prepare("DESCRIBE $_;");
-			if($query -> execute()){
-				while(my @dInfo = $query -> fetchrow_array()){push(@fields, "$_.$dInfo[0]");}	#create an array of the fields found
-				$query -> finish();
-			}
-			else{
-				$error = "Cant retrieve fields list for $_ table: " . $dbh -> errstr;
-				last;
-			}
-		}
-		$dbh -> disconnect();
-		if(!$error){return @fields;}	#send back the fields to the calling sub
-	}
-	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
-	return undef;
-}
-##########################################################################################################
-sub getDatabases{	#returns an array of databases for the current connection
-	my($host, $user, $password) = @_;
-	my $dbh = DBI -> connect("DBI:mysql:database=;host=$host", $user, $password);
-	if($dbh){
-		my $query = $dbh -> prepare("SHOW DATABASES;");
-		if($query -> execute()){
-			my @dbs;
-			while(my $db = $query -> fetchrow_array()){push(@dbs, $db);}	#create an array of the tables found
-			$query -> finish();
-			return @dbs;	#send back the tables to the calling sub
-		}
-		else{$error = "Cant find database list: " . $dbh -> errstr;}
-		$dbh -> disconnect();
-	}
-	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
-	return undef;
-}
 ##################################################################################################################
 sub composeSelect{	#generates the sql code for a select query
 	my $code = "SELECT ";
@@ -614,66 +464,6 @@ sub composeSelect{	#generates the sql code for a select query
 	$code .= ";";
 	return $code;
 }
-##################################################################################################################
-sub runQuery{
-	my($host, $user, $password, $database, $code) = @_;
-	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
-	if($dbh){
-		my $query = $dbh -> prepare($code);
-		if($query -> execute()){
-			my $html = "<tr>";
-			my $names = $query ->{'NAME'};	#all returned field names
-			for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){$html .= "<th>$$names[$i]</th>";}	#get field names
-			$html .= "</tr>\n";	#finished field names
-			while(my @fields = $query -> fetchrow_array()){
-				$html .= "<tr>";
-				foreach(@fields){
-					if($_){$html .= "<td>$_</td>";}	#this field has a value
-					else{$html .= "<td>&nbsp;</td>";}	#this field has a null value
-				}
-				$html .= "</tr>\n";
-			}
-			$html .= "<tr><td align=\"center\" colspan=\"" . $query ->{'NUM_OF_FIELDS'} . "\">" . $query -> rows() . "Rows found</td></tr>\n";	#print rows found
-			$query -> finish();
-			return $html;
-		}
-		else{$error = "Problem with query: " . $dbh -> errstr;}
-		$dbh -> disconnect();
-	}
-	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
-	return undef;
-}
-##########################################################################################################
-sub getTableRows{	#returns how many rows in a table
-	my($host, $user, $password, $database, $table) = @_;
-	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
-	if($dbh){
-		my $query = $dbh -> prepare("SELECT COUNT(*) FROM $table;");
-		my $rows;
-		if($query -> execute()){
-			$rows = $query -> fetchrow_array();
-			$query -> finish();
-		}
-		else{$error = "Cant retrieve number of rows for $_ table: " . $dbh -> errstr;}
-		$dbh -> disconnect();
-		if(!$error){return $rows;}	#send back the fields to the calling sub
-	}
-	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
-	return undef;
-}
-#############################################################################################################
-sub runNonSelect{
-	my($host, $user, $password, $database, $code) = @_;
-	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
-	if($dbh){
-		my $affected;
-		if(!($affected = $dbh -> do($code))){$error = "Problem with query: " . $dbh -> errstr;}
-		$dbh -> disconnect();
-		if(!$error){return $affected;}	#send back the fields to the calling sub
-	}
-	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
-	return undef;
-}
 ##############################################################################################################
 sub getCreationFields{
 	my $html = "";
@@ -681,11 +471,56 @@ sub getCreationFields{
 		my @names = split(/¬/, $form{'creationfnames'});
 		my @types = split(/¬/, $form{'creationftypes'});
 		my @sizes = split(/¬/, $form{'creationfsizes'});
+		my @nulls = split(/¬/, $form{'creationfnulls'});
 		for(my $count = 0; $count <= $#names; $count++){
 			$html .= "<tr><td>$names[$count]</td><td>$types[$count]";
 			if($sizes[$count] > 0){$html .= "($sizes[$count])";}	#print the size
-			$html .= "</td><td></td><td></td><td></td><td></td></tr>\n";
+			$html .= "</td>";
+			if($nulls[$count] eq "Y"){$html .= "<td>YES</td>";}	#show that this field is null
+			else{$html .= "<td></td>";}
+			$html .= "<td></td><td></td><td></td></tr>\n";
 		}
 	}
 	return $html;
+}
+############################################################################################################################
+sub uploadFile{
+	my $file = shift;
+	my $result = 0;
+	if(open(SAVE, ">dump_uploads/$file")){	#create a new temp file on the server
+		my $data;
+		my $totalsize = 0;
+		while(my $size = read($form{'dumpfile'}, $data, 1024)){	#read the contents of the file
+			print SAVE $data;
+			$totalsize += $size;	#save the size of this file
+		}
+		close SAVE;
+		if($totalsize > 0){$result = 1;}	#got a valid file
+		else{
+			unlink("dump_uploads/$file");
+			$error = "File: $file was empty $!";
+		}
+	}
+	else{$error = "Could not save file: $file";}
+	return $result;
+}
+###############################################################################################################################
+sub processFile{
+	my $file = shift;
+	if(open(DUMP, "<dump_uploads/$file")){
+		my $allSql = "";
+		while(<DUMP>){
+			chomp $_;
+			if($_ !~ m/^--/ && $_ ne ""){$allSql .= $_;}	#read all of the file in
+		}
+		close(DUMP);
+		my $count = 0;
+		foreach(split(/;/, $allSql)){
+			if(!&runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "$_;")){last;}
+			$count++;
+		}
+		return $count;
+	}
+	else{$error = "Could not read dump file: $0";}
+	return undef;
 }
