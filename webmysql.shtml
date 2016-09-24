@@ -25,7 +25,9 @@
 											<li>DESCRIBE</li>
 											<li>JOIN</li>
 											<li>SHOW</li>
-											<li>DROP TABLE</li>
+											<li>DROP TABLE and DATABASE</li>
+											<li>CREATE TABLE</li>
+											<li>USE DATABASE</li>
 										</ul>
                               <li>Advanced query options such as LIMIT, DISTINCT and GROUP</li>
                               <li>Fully customisable look and feel</li>
@@ -62,6 +64,12 @@
 						<tr>
 							<td>
                         <p>
+									<b>Version 2.1</b>&nbsp;&nbsp;&nbsp;(27th May 2003)
+									<dir>
+										Database deletion now supported.<br>
+										Databases can be switched without logging out.<br>
+										Limited table create available.
+									</dir>
 									<b>Version 2.0</b>&nbsp;&nbsp;&nbsp;(3rd May 2003)
 									<dir>
 										Server side cookies now used.<br>
@@ -106,7 +114,8 @@
 							<td>
                         <table summary="downloads" width="100%">
 									<tr bgcolor="#CCCCCC"><th>Version</th><th>Size</th><th>Date</th><th>Notes</th></tr>
-									<tr><td><a href="files/webmysql-2.0.tar.bz2">2.0</a></td><td>576k</td><td>03/05/2003</td><td>(Latest), no CSV support</td></tr>
+									<tr><td><a href="files/webmysql-2.1.tar.bz2">2.1</a></td><td>576k</td><td>27/05/2003</td><td>(Latest), no CSV support</td></tr>
+									<tr><td><a href="files/webmysql-2.0.tar.bz2">2.0</a></td><td>576k</td><td>03/05/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-1.6.tar.bz2">1.6</a></td><td>431k</td><td>13/01/2002</td><td>CSV support</td></tr>
 									<tr><td><a href="files/webmysql-1.5.tar.gz">1.5</a></td><td>436k</td><td>25/10/2001</td><td></td></tr>
 								</table>

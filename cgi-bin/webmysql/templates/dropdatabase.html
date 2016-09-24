@@ -1,7 +1,7 @@
 <html>
 	<head>
 		<link rel="stylesheet" type="text/css" href="/webmysql-<!--version-->/main.css" title="Main">
-		<title>WebMySQL: Chose table</title>
+		<title>WebMySQL: Drop database</title>
 	</head>
 	<body>
 		<table align="center" bgcolor="#8899DD" width="100%" border="1">
@@ -13,12 +13,17 @@
 				<th><a href="<!--self-->?key=<!--key-->&amp;action=logout">Logout</a></th>
 			</tr>
 		</table>
-		<p>Please select the table(s) you wish the query to run on.</p>
+		<p>
+			Are you sure you wish to drop the following database?
+			<dir><b><!--db--></b></dir>
+			It contains <b><!--numtables--></b> tables of data.
+		</p>
 		<form action="<!--self-->" method="POST">
 			<input type="hidden" name="key" value="<!--key-->">
-			<input type="hidden" name="action" value="choosefields">
+			<input type="hidden" name="action" value="dropdatabaseconfirm">
 			<table align="center" bgcolor="#8899DD" border="1">
-				<!--tablelist-->
+				<tr><th><input checked type="radio" name="answer" value="no"></th><td>No</td></tr>
+				<tr><th><input type="radio" name="answer" value="yes"></th><td>Yes</td></tr>
 			</table>
 			<br>
 			<table align="center" bgcolor="#8899DD" border="1">

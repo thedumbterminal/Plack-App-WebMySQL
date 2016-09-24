@@ -1,7 +1,7 @@
 <html>
 	<head>
 		<link rel="stylesheet" type="text/css" href="/webmysql-<!--version-->/main.css" title="Main">
-		<title>WebMySQL: Drop table</title>
+		<title>WebMySQL: Manage databases</title>
 	</head>
 	<body>
 		<table align="center" bgcolor="#8899DD" width="100%" border="1">
@@ -13,6 +13,10 @@
 				<th><a href="<!--self-->?key=<!--key-->&amp;action=logout">Logout</a></th>
 			</tr>
 		</table>
-		<p>The table <b><!--tables--></b> was successfully dropped from the database.</p>
+		<p>Available databases:</p>
+		<table align="center" bgcolor="#8899DD" border="1">
+			<!--databaselist-->
+		</table>
+		<p><a href="<!--self-->?key=<!--key-->&amp;action=createdatabase">Create new database</a></p>
 	</body>
 </html>

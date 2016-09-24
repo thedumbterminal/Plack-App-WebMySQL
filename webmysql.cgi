@@ -20,8 +20,8 @@ if(&getData()){	#get the data from the last page's form
 				&updateKey($form{'key'});
 			}
 			elsif($form{'action'} eq "choosetable"){	#pick what table to run the query type on
+				$form{'tablelist'} = "";
 				if(my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
-					$form{'tablelist'} = "";
 					for(my $tCount = 0; $tCount <= $#tables; $tCount++){$form{'tablelist'} .= "<tr><th><input type=\"checkbox\" name=\"table$tCount\" value=\"$tables[$tCount]\"></th><td>$tables[$tCount]</td></tr>\n";}	#convert to html format
 					&updateKey($form{'key'});
 				}
@@ -107,8 +107,8 @@ if(&getData()){	#get the data from the last page's form
 				$form{'queryrecords'} = &runQuery($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'sql'});
 			}
 			elsif($form{'action'} eq "managetables"){	#show table list
+				$form{'tablelist'} = "";
 				if(my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
-					$form{'tablelist'} = "";
 					foreach(@tables){	#convert to html format
 						$form{'tablelist'} .= "<tr>\n";
 						$form{'tablelist'} .= "<td>$_</td>\n";
@@ -158,6 +158,239 @@ if(&getData()){	#get the data from the last page's form
 					else{$error = "Table name contains invalid characters";}
 				}
 				else{$error = "You did not confirm that you wanted the table dropped";}
+			}
+			elsif($form{'action'} eq "createtable"){	#chose a new table name
+				delete $form{'tables'};
+				&updateKey($form{'key'});
+			}
+			elsif($form{'action'} eq "createtablefields"){	#show table creation page
+				if($form{'tables'} ne ""){
+					if(length($form{'tables'}) <= 64){
+						if($form{'tables'} =~ m/^\w+$/){
+							my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'});
+							if($#tables > -1){	# the current database already has some tables in it
+								my $exists = 0;
+								foreach(@tables){
+									if($_ eq $form{'tables'}){	#found this table name already
+										$exists = 1;
+										last;
+									}
+								}
+								if(!$exists){	#this name name does not exist already
+									$form{'currentfields'} = &getCreationFields();
+									$form{'removefields'} = "";
+									if($form{'creationfnames'}){
+										my @fields = split(/¬/, $form{'creationfnames'});
+										foreach(@fields){$form{'removefields'} .= "<option value=\"$_\">$_</option>\n";}
+									}
+									&updateKey($form{'key'});
+								}
+								else{$error = "The table name you specified already exists in the current database";}
+							}
+							elsif(!$error){	#no current tables in database
+								delete $form{'creationfnames'};
+								delete $form{'creationftypes'};
+								delete $form{'creationfsizes'};
+								$form{'currentfields'} = "";
+								$form{'removefields'} = "";
+								&updateKey($form{'key'});
+							}
+						}
+						else{$error = "The table name you specified contains invalid characters";}
+					}
+					else{$error = "The table name you specified is too long";}
+				}
+				else{$error = "You did not enter a name for the new table";}
+			}
+			elsif($form{'action'} eq "createtableaddfield"){	#add a new field to the table
+				if($form{'fname'} ne ""){	#the user has typed a field name in
+					if($form{'fsize'} eq ""){$form{'fsize'} = 0;}
+					my $found = 0;
+					if($form{'creationfnames'}){	#we have some fields already
+						foreach(split(/¬/, $form{'creationfnames'})){	#search the current list of field names to be
+							if($_ eq $form{'fname'}){
+								$found = 1;
+								last;
+							}
+						}
+					}
+					if(!$found){
+						if(!exists($form{'creationfnames'})){
+							$form{'creationfnames'} = $form{'fname'};
+							$form{'creationftypes'} = $form{'ftype'};
+							$form{'creationfsizes'} = $form{'fsize'};
+						}
+						else{
+							$form{'creationfnames'} .= "¬$form{'fname'}";
+							$form{'creationftypes'} .= "¬$form{'ftype'}";
+							$form{'creationfsizes'} .= "¬$form{'fsize'}";
+						}	#append
+						&updateKey($form{'key'});
+						$form{'currentfields'} = &getCreationFields();
+						my @fields = split(/¬/, $form{'creationfnames'});
+						$form{'removefields'} = "";
+						foreach(@fields){$form{'removefields'} .= "<option value=\"$_\">$_</option>\n";}
+						$form{'action'} = "createtablefields";	#send user back to the table creation page
+					}
+					else{$error = "A field with the name specified already exists in this table";}
+				}
+				else{$error = "You did not specify a field name";}
+			}
+			elsif($form{'action'} eq "createtablenow"){	#create the table now
+				if($form{'creationfnames'}){
+					my $sql = "CREATE TABLE $form{'tables'} (";
+					my @names = split(/¬/, $form{'creationfnames'});
+					my @types = split(/¬/, $form{'creationftypes'});
+					my @sizes = split(/¬/, $form{'creationfsizes'});
+					for(my $count = 0; $count <= $#names; $count++){
+						$sql .= "$names[$count] $types[$count]";
+						if($sizes[$count] > 0){$sql .= "($sizes[$count])";}	#include size for this field
+						if($count < $#names){$sql .= ", ";}
+					}
+					$sql .= ");";
+					#print STDERR "$sql\n";
+					$form{'queryrecords'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $sql);
+				}
+				else{$error = "This table has no fields yet";}
+			}
+			elsif($form{'action'} eq "createtableremovefield"){
+				if($form{'fname'} ne ""){
+					my @names = split(/¬/, $form{'creationfnames'});
+					my @types = split(/¬/, $form{'creationftypes'});
+					my @sizes = split(/¬/, $form{'creationfsizes'});
+					$form{'creationfnames'} = "";
+					$form{'creationftypes'} = "";
+					$form{'creationfsizes'} = "";
+					for(my $count = 0; $count <= $#names; $count++){
+						if($names[$count] ne $form{'fname'}){
+							if($form{'creationfnames'} eq ""){
+								$form{'creationfnames'} .= $names[$count];
+								$form{'creationftypes'} .= $types[$count];
+								$form{'creationfsizes'} .= $sizes[$count];
+							}
+							else{
+								$form{'creationfnames'} .= "¬$names[$count]";
+								$form{'creationftypes'} .= "¬$types[$count]";
+								$form{'creationfsizes'} .= "¬$sizes[$count]";
+							}
+						}
+					}
+					if($form{'creationfnames'} eq ""){	#remove empty hash elements
+						delete $form{'creationfnames'};
+						delete $form{'creationftypes'};
+						delete $form{'creationfsizes'};
+					}
+					&updateKey($form{'key'});
+					$form{'currentfields'} = &getCreationFields();
+					$form{'removefields'} = "";
+					if($form{'creationfnames'}){	#if we have some fields already
+						@names = split(/¬/, $form{'creationfnames'});	#get the new list of names
+						foreach(@names){$form{'removefields'} .= "<option value=\"$_\">$_</option>\n";}
+					}
+					$form{'action'} = "createtablefields";	#send user back to the table creation page
+				}
+				else{$error = "You did not specify a field name to remove";}
+			}
+			elsif($form{'action'} eq "managedatabases"){
+				if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'})){
+					$form{'databaselist'} = "";
+					foreach(@dbs){	#convert to html format
+						$form{'databaselist'} .= "<tr>\n";
+						$form{'databaselist'} .= "<td>$_</td>\n";
+						$form{'databaselist'} .= "<th>\n";
+						$form{'databaselist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">\n";
+						$form{'databaselist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
+						$form{'databaselist'} .= "<input type=\"hidden\" name=\"db\" value=\"$_\">\n";
+						$form{'databaselist'} .= "<input type=\"hidden\" name=\"action\" value=\"usedatabase\">\n";
+						$form{'databaselist'} .= "<input type=\"submit\" value=\"Use\">\n";
+						$form{'databaselist'} .= "</form>\n";
+						$form{'databaselist'} .= "</th>\n";
+						$form{'databaselist'} .= "<th>\n";
+						if($_ eq "mysql"){$form{'databaselist'} .= "&nbsp;"}	#cant delete this table
+						else{
+							$form{'databaselist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">\n";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"db\" value=\"$_\">\n";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"action\" value=\"dropdatabase\">\n";
+							$form{'databaselist'} .= "<input type=\"submit\" value=\"Drop\">\n";
+							$form{'databaselist'} .= "</form>\n";
+						}
+						$form{'databaselist'} .= "</th>\n";
+						$form{'databaselist'} .= "</tr>\n";
+					}
+					delete $form{'db'};
+					&updateKey($form{'key'});
+				}
+			}
+			elsif($form{'action'} eq "dropdatabase"){
+				if($form{'db'} =~ m/^(\w+)$/){	#safety check on table name
+					$form{'numtables'} = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'db'});
+					&updateKey($form{'key'});
+				}
+				else{$error = "Database name contains invalid characters";}
+			}
+			elsif($form{'action'} eq "dropdatabaseconfirm"){
+				if($form{'answer'} eq "yes"){	#user confirmed drop
+					if($form{'db'} =~ m/^(\w+)$/){	#safety check on table name
+						$form{'queryrecords'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "DROP DATABASE $1;");
+					}
+					else{$error = "Database name contains invalid characters";}
+				}
+				else{$error = "You did not confirm that you wanted the database dropped";}
+			}
+			elsif($form{'action'} eq "createdatabase"){	#chose a new database name
+				delete $form{'db'};
+				&updateKey($form{'key'});
+			}
+			elsif($form{'action'} eq "createdatabasenow"){
+				if($form{'db'} ne ""){
+					if(length($form{'db'}) <= 64){
+						if($form{'db'} =~ m/^\w+$/){
+							if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'})){
+								my $exists = 0;
+								foreach(@dbs){
+									if($_ eq $form{'db'}){	#found this database name already
+										$exists = 1;
+										last;
+									}
+								}
+								if(!$exists){	#this name name does not exist already
+									&runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "CREATE DATABASE $form{'db'};");
+								}
+								else{$error = "The database name you specified already exists";}
+							}
+						}
+						else{$error = "The database name you specified contains invalid characters";}
+					}
+					else{$error = "The database name you specified is too long";}
+				}
+				else{$error = "You did not enter a name for the new database";}
+			}
+			elsif($form{'action'} eq "usedatabase"){
+				if($form{'db'} ne ""){
+					if(length($form{'db'}) <= 64){
+						if($form{'db'} =~ m/^\w+$/){
+							if(my @dbs = &getDatabases($form{'host'}, $form{'user'}, $form{'password'})){
+								my $exists = 0;
+								foreach(@dbs){
+									if($_ eq $form{'db'}){	#found this database name already
+										$exists = 1;
+										last;
+									}
+								}
+								if($exists){	#this name name does not exist already
+									$form{'database'} = $form{'db'};	#save the new database
+									delete $form{'db'};
+									&updateKey($form{'key'});
+								}
+								else{$error = "The database name you specified already exists";}
+							}
+						}
+						else{$error = "The database name you specified contains invalid characters";}
+					}
+					else{$error = "The database name you specified is too long";}
+				}
+				else{$error = "You did not enter a name for the new database";}
 			}
 			else{$error = "Invalid action: $form{'action'}";}	#a strange action has been found
 		}
@@ -215,7 +448,7 @@ sub readKey{	#read the contents of a server side cookie back into the form hash
 ###############################################################################################################
 sub updateKey{	#saves last form's data, overwriting the existing key file
 	$_[0] =~ m/^(\d+)$/;	#untaint
-	my @wanted = ("database", "password", "host", "user", "type", "fields", "criteria", "tables");
+	my @wanted = ("database", "password", "host", "user", "type", "fields", "criteria", "tables", "creationfnames", "creationftypes", "creationfsizes", "db");
 	if(open(COOKIE, ">keys/$1")){
 		foreach my $name (keys %form){
 			my $found = 0;
@@ -249,6 +482,7 @@ sub replace{	#make sure we dont get any undefined values when replacing template
 ###############################################################################################################
 sub parsePage{	#displays a html page
 	my $page = shift;
+	my $version = "2.1";	#version of this code
 	print "Content-type: text/html\n\n";
 	if($error){	#an error has not been encountered
 		$page = "error";
@@ -259,7 +493,7 @@ sub parsePage{	#displays a html page
 			$_ =~ s/<!--self-->/$ENV{'SCRIPT_NAME'}/g;	#replace the name for this script
 			$_ =~ s/<!--server-->/$ENV{'HTTP_HOST'}/g;	#replace webserver name
 			$_ =~ s/<!--error-->/$error/g;	#replace the error message
-			$_ =~ s/<!--version-->/2.0/g;	#replace version number
+			$_ =~ s/<!--version-->/$version/g;	#replace version number
 			$_ =~ s/<!--(\w+)-->/&replace($1)/eg;	#replace the placeholders in the template
          $_ =~ s|</body>|<br><br>\n<div align="center"><font size="2">&copy; <a href="http://www.thedumbterminal.co.uk" target="_blank">Dumb Terminal Creations</a></font></div>\n</body>|;
 			print;
@@ -270,7 +504,7 @@ sub parsePage{	#displays a html page
 		print << "(NO TEMPLATE)";
 <html>
 	<body>
-		Could not open HTML template: webmysql_templates/$page.html
+		Could not open HTML template: webmysql-$version/templates/$page.html
 	</body>
 </html>
 (NO TEMPLATE)
@@ -326,6 +560,24 @@ sub getFields{	#returns an array of tables for the current database
 		}
 		$dbh -> disconnect();
 		if(!$error){return @fields;}	#send back the fields to the calling sub
+	}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
+}
+##########################################################################################################
+sub getDatabases{	#returns an array of databases for the current connection
+	my($host, $user, $password) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=;host=$host", $user, $password);
+	if($dbh){
+		my $query = $dbh -> prepare("SHOW DATABASES;");
+		if($query -> execute()){
+			my @dbs;
+			while(my $db = $query -> fetchrow_array()){push(@dbs, $db);}	#create an array of the tables found
+			$query -> finish();
+			return @dbs;	#send back the tables to the calling sub
+		}
+		else{$error = "Cant find database list: " . $dbh -> errstr;}
+		$dbh -> disconnect();
 	}
 	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
 	return undef;
@@ -421,4 +673,19 @@ sub runNonSelect{
 	}
 	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
 	return undef;
+}
+##############################################################################################################
+sub getCreationFields{
+	my $html = "";
+	if(exists($form{'creationfnames'})){	#user has chosen some fields already
+		my @names = split(/¬/, $form{'creationfnames'});
+		my @types = split(/¬/, $form{'creationftypes'});
+		my @sizes = split(/¬/, $form{'creationfsizes'});
+		for(my $count = 0; $count <= $#names; $count++){
+			$html .= "<tr><td>$names[$count]</td><td>$types[$count]";
+			if($sizes[$count] > 0){$html .= "($sizes[$count])";}	#print the size
+			$html .= "</td><td></td><td></td><td></td><td></td></tr>\n";
+		}
+	}
+	return $html;
 }
