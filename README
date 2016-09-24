@@ -1,8 +1,8 @@
-                                       WebMYSQL v2.6
+                                       WebMYSQL v2.7
                                  (Web based MySQL interface)
                                        --------------
 
-Copyright 2004 Dumb Terminal Creations <enquiries@thedumbterminal.co.uk>
+Copyright 2005 Dumb Terminal Creations <macgyver@thedumbterminal.co.uk>
 This program is free software; you may redistribute it in it's original format.
 
 DISCLAIMER OF WARRANTY
@@ -36,4 +36,4 @@ You may also change the name of the webmysql program itself, this should be done
 NOTES
 
 Some webservers do not like CGI executables with no extension, if you see the binary printed to your browser just add a extension of ".cgi".
-Any bugs found please report to enquiries@thedumbterminal.co.uk.
+Any bugs found please report to macgyver@thedumbterminal.co.uk.

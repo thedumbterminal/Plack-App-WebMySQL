@@ -1,48 +1,25 @@
-<html>
-	<head>
-		<link rel="stylesheet" type="text/css" href="/webmysql-<!--version-->/main.css" title="Main">
-		<title>WebMySQL: Insert</title>
-	</head>
-	<body>
 		<!--menu-->
-		<p>Insert record into: <b><!--tables--></b></p>
-		<table>
-			<tr>
-				<td valign="top">Current records to insert:</td>
-				<td>
-					<table border="1" align="center" bgcolor="#8899DD">
-						<tr><!--fields--></tr>
-						<!--currentrecords-->
-					</table>
-				</td>
-			</tr>
-			<tr><td colspan="2">&nbsp;</td></tr>
-			<tr>
-				<td valign="top">Add a new record:</td>
-				<td>
-					<form action="<!--self-->" method="POST">
-						<input type="hidden" name="key" value="<!--key-->">
-						<input type="hidden" name="action" value="insert">
-						<table border="1" align="center" bgcolor="#8899DD">
-							<!--input-->
-							<tr><td colspan="2" align="center"><input type="submit" value="Add record"></td></tr>
-						</table>
-					</form>
-				</td>
-			</tr>
-			<tr><td colspan="2">&nbsp;</td></tr>
-			<tr>
-				<td>Insert into this table now using the records:</td>
-				<td>
-					<form action="<!--self-->" method="POST">
-						<input type="hidden" name="key" value="<!--key-->">
-						<input type="hidden" name="action" value="insertnow">
-						<table align="center" bgcolor="#8899DD" border="1">
-							<tr><td><input type="submit" value="Continue"></td></tr>
-						</table>
-					</form>
-				</td>
-			</tr>
-		</table>
-	</body>
-</html>
+<p>Insert record into: <b><!--tables--></b></p>
+<form action="<!--self-->" method="POST">
+	<input type="hidden" name="key" value="<!--key-->">
+	<input type="hidden" name="action" value="insert">
+	<table>
+		<tr>
+			<td valign="top">New row:</td>
+			<td>
+				<table class="inputtable">
+					<!--input-->
+				</table>
+			</td>
+		</tr>
+		<tr><td colspan="2">&nbsp;</td></tr>
+		<tr>
+			<td>Insert record now</td>
+			<td>
+				<table class="inputtable">
+					<tr><td><input type="submit" value="Insert"></td></tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+</form>

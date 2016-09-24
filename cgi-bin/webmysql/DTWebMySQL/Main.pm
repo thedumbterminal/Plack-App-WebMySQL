@@ -5,7 +5,7 @@ BEGIN {
    use Exporter();
 	our %form;	#data from the previous page
 	our $error = "";	#error flag
-	our $version ="2.6";	#version of this software
+	our $version ="2.7";	#version of this software
 	@ISA = qw(Exporter);
    @EXPORT = qw(%form $error $version);
 }

@@ -1,11 +1,23 @@
 #the dumb terminal webmysql module
 #mt 29/11/2003 2.5	updated getDatabases sub incase "SHOW DATABASES" is disabled
+#mt 14/03/2005	2.7	added explainquery function
+#							added runqueryvert function
 package DTWebMySQL::Sql;
 BEGIN {
 	use DTWebMySQL::Main;
    use Exporter();
 	@ISA = qw(Exporter);
-   @EXPORT = qw(testConnect getTables getFields getDatabases runQuery getTableRows runNonSelect getVariable);
+   @EXPORT = qw(testConnect
+					 getTables
+					 getFields
+					 getFieldsShort
+					 getDatabases
+					 runQuery
+					 getTableRows
+					 runNonSelect
+					 getVariable
+					 explainQuery
+					 runQueryVert);
 }
 ############################################################################################################
 sub testConnect{	#tests if we can connect to the mysql server
@@ -48,6 +60,29 @@ sub getFields{	#returns an array of fields for the current table
 			my $query = $dbh -> prepare("DESCRIBE $_;");
 			if($query -> execute()){
 				while(my @dInfo = $query -> fetchrow_array()){push(@fields, "$_.$dInfo[0]");}	#create an array of the fields found
+				$query -> finish();
+			}
+			else{
+				$error = "Cant retrieve fields list for $_ table: " . $dbh -> errstr;
+				last;
+			}
+		}
+		$dbh -> disconnect();
+		if(!$error){return @fields;}	#send back the fields to the calling sub
+	}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
+}
+##########################################################################################################
+sub getFieldsShort{	#returns an array of fields for the current table not includung the table name
+	my($host, $user, $password, $database, $tables) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
+	if($dbh){
+		my @fields;
+		foreach(split(/, /, $tables)){	#get the fields for all of the selected tables
+			my $query = $dbh -> prepare("DESCRIBE $_;");
+			if($query -> execute()){
+				while(my @dInfo = $query -> fetchrow_array()){push(@fields, $dInfo[0]);}	#create an array of the fields found
 				$query -> finish();
 			}
 			else{
@@ -168,6 +203,77 @@ sub getVariable{	#returns a server variable
 	}
 	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
 	return "";
+}
+##################################################################################################################
+sub explainQuery{
+	my($host, $user, $password, $database, $code) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
+	if($dbh){
+		my $query = $dbh -> prepare("EXPLAIN " . $code);
+		if($query -> execute()){
+			my $html = "<tr>";
+			my $names = $query ->{'NAME'};	#all returned field names
+			for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){$html .= "<th>$$names[$i]</th>";}	#get field names
+			$html .= "</tr>\n";	#finished field names
+			while(my @fields = $query -> fetchrow_array()){
+				$html .= "<tr bgcolor=\"#FFFFFF\">";
+				foreach(@fields){
+					if($_){	#this field has a value
+						$_ =~ s/</&lt;/g;	#html dont like less than signs
+						$_ =~ s/>/&gt;/g;	#html dont like greater than signs
+						$html .= "<td>$_</td>";
+					}
+					else{$html .= "<td>&nbsp;</td>";}	#this field has a null value
+				}
+				$html .= "</tr>\n";
+			}
+			$html .= "<tr><td align=\"center\" colspan=\"" . $query ->{'NUM_OF_FIELDS'} . "\">" . $query -> rows() . "Rows found</td></tr>\n";	#print rows found
+			$query -> finish();
+			return $html;
+		}
+		else{$error = "Problem with query: " . $dbh -> errstr;}
+		$dbh -> disconnect();
+	}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
+}
+##################################################################################################################
+sub runQueryVert{	#displays results verticaly
+	my($host, $user, $password, $database, $code) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
+	if($dbh){
+		my $query = $dbh -> prepare($code);
+		if($query -> execute()){
+			my $html = "";
+			my $names = $query ->{'NAME'};	#all returned field names
+			my @rows;
+			for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){
+				$rows[$i] = "<tr bgcolor=\"#FFFFFF\"><th>$$names[$i]</th>";
+			}	#get field names
+			#$html .= "</tr>\n";	#finished field names
+			while(my @fields = $query -> fetchrow_array()){
+				for(my $rCount = 0; $rCount <= @fields; $rCount++){
+					if($fields[$rCount]){	#this field has a value
+						$fields[$rCount] =~ s/</&lt;/g;	#html dont like less than signs
+						$fields[$rCount] =~ s/>/&gt;/g;	#html dont like greater than signs
+						$rows[$rCount] .= "<td>$fields[$rCount]</td>";
+					}
+					else{$row[$rCount] .= "<td>&nbsp;</td>";}	#this field has a null value
+				}
+			}
+			for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){
+				$rows[$i] .= "</tr>";
+			}
+			#$html .= "<tr><td align=\"center\" colspan=\"" . $query ->{'NUM_OF_FIELDS'} . "\">" . $query -> rows() . "Rows found</td></tr>\n";	#print rows found
+			$query -> finish();
+			$html = join("", @rows);
+			return $html;
+		}
+		else{$error = "Problem with query: " . $dbh -> errstr;}
+		$dbh -> disconnect();
+	}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
 }
 ###############################################################################
 return 1;

@@ -1,22 +1,9 @@
-<html>
-   <head><title>The Dumb Terminal: WebMySQL</title></head>
-   <body bgcolor="<!--#include virtual="/cgi-bin/theme-bgcolour.cgi" -->">
-   	<table bgcolor="#FFFFFF" cellspacing="0" cellpadding="0" width="75%" border="2" summary="window border" align="center">
-      	<tr>
-             <td>
-					 <!--#include virtual="/cgi-bin/theme-titlebar.cgi?title=Overview" -->
-             </td>
-          </tr>
-          <tr>
-       	   <td>
-					<br>
-					<table width="95%" align="center">
-						<tr>
-							<td>
+<!--#include virtual="/header.shtml" -->
+	<h1>WebMySQL - Overview</h1>
                         <p>
 									A web interface to a <a href="http://www.mysql.com" target="_blank">MySQL</a> database server.<br>
 									For a screenshot, please click <a href="webmysql-screenshot.jpg" target="_blank">here</a> (36k).
-									Also a <a href="/cgi-bin/webmysql-2.6/webmysql.cgi" target="_blank">fully working demo</a> is available, you will
+									Also a <a href="/cgi-bin/webmysql-2.7/webmysql.cgi" target="_blank">fully working demo</a> is available, you will
 									need to supply your own MySQL connection details to login.
                         </p>
                         <h2>Features</h2>
@@ -31,9 +18,11 @@
 											<li>DROP</li>
 											<li>CREATE</li>
 											<li>USE</li>
+											<li>INSERT</li>
+											<li>EXPLAIN</li>
 										</ul>
                               <li>Advanced query options such as LIMIT, DISTINCT and GROUP</li>
-                              <li>Fully customisable look and feel</li>
+                              <li>Fully customisable look and feel using CSS and HTML templates</li>
                               <li>HTML results or downloadable CSV file</li>
                               <li>mysqldump file import and export</li>
 										<li>Empty databases and tables</li>
@@ -42,31 +31,22 @@
                         <h2>Requirements</h2>
                         <p>
                            <ul>
-                              <li>Linux operating system</li>
+                              <li>Perl installed with DBI and DBD::mysql modules installed</li>
                               <li>MySQL server access</li>
                               <li>Web server with CGI support</li>
                            </ul>
                         </p>
-                     </td>
-                  </tr>
-               </table>
-            </td>
-         </tr>
-      </table>
-		<br>
-   	<table bgcolor="#FFFFFF" cellspacing="0" cellpadding="0" width="75%" border="2" summary="window border" align="center">
-      	<tr>
-             <td>
-					 <!--#include virtual="/cgi-bin/theme-titlebar.cgi?title=Changelog" -->
-             </td>
-          </tr>
-          <tr>
-       	   <td>
-					<br>
-					<table width="95%" align="center">
-						<tr>
-							<td>
+<!--#include virtual="/middle.shtml" -->	
+<h1>WebMySQL - Changelog</h1>							
                         <p>
+								
+									<b>Version 2.7</b>&nbsp;&nbsp;&nbsp;(16th March 2005)
+									<dir>
+										Explain output now shown on queries<br>
+										More use of CSS in templates<br>
+										Insert bug fixed<br>
+										Table status can now be viewed with description.
+									</dir>
 									<b>Version 2.6</b>&nbsp;&nbsp;&nbsp;(14th January 2004)
 									<dir>
 										Can now export in mysqldump format.<br>
@@ -123,28 +103,12 @@
 										Public release.
 									</dir>
                         </p>
-                     </td>
-                  </tr>
-               </table>
-            </td>
-         </tr>
-      </table>
-		<br>
-   	<table bgcolor="#FFFFFF" cellspacing="0" cellpadding="0" width="75%" border="2" summary="window border" align="center">
-      	<tr>
-             <td>
-					 <!--#include virtual="/cgi-bin/theme-titlebar.cgi?title=Downloads" -->
-             </td>
-          </tr>
-          <tr>
-       	   <td>
-					<br>
-					<table width="95%" align="center">
-						<tr>
-							<td>
+<!--#include virtual="/middle.shtml" -->
+<h1>WebMySQL - Downloads</h1>								
                         <table summary="downloads" width="100%">
 									<tr bgcolor="#CCCCCC"><th>Version</th><th>Size</th><th>Date</th><th>Notes</th></tr>
-									<tr><td><a href="files/webmysql-2.6.tar.bz2">2.6</a></td><td>663k</td><td>14/01/2004</td><td>(Latest), no CSV support</td></tr>
+									<tr><td><a href="files/webmysql-2.7.tar.bz2">2.7</a></td><td>19.6k</td><td>16/03/2005</td><td>no CSV support, open source</td></tr>
+									<tr><td><a href="files/webmysql-2.6.tar.bz2">2.6</a></td><td>663k</td><td>14/01/2004</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-2.5.tar.bz2">2.5</a></td><td>664k</td><td>29/11/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-2.4.tar.bz2">2.4</a></td><td>659k</td><td>16/11/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-2.3.tar.bz2">2.3</a></td><td>662k</td><td>29/09/2003</td><td>no CSV support</td></tr>
@@ -155,11 +119,5 @@
 									<tr><td><a href="files/webmysql-1.5.tar.gz">1.5</a></td><td>436k</td><td>25/10/2001</td><td></td></tr>
 								</table>
 								<br>
-                     </td>
-                  </tr>
-               </table>
-            </td>
-         </tr>
-      </table>
-   </body>
-</html>
+
+<!--#include virtual="/footer.html" -->

@@ -10,11 +10,14 @@
 #mt 29/11/2003 2.5	Updated processfile sub to cope with ";" characters in sql commands
 #mt 14/01/2004	2.6	Added mysqldump export support
 #							improved processFile sub to do only one db connect, much faster now
+#mt 16/03/2005	2.7	finished insert code
+#							added explain to select queries
+#							added table status info
 use strict;
 use CGI;
 use DBI;
-#use lib ".";
 use DBD::mysql;
+use lib ".";
 use DTWebMySQL::Main;
 use DTWebMySQL::Key;
 use DTWebMySQL::General;
@@ -120,6 +123,7 @@ if(&getData()){	#get the data from the last page's form
 			}
 			elsif($form{'action'} eq "runquery"){	#run the query
 				$form{'sql'} = &composeSelect();
+				$form{'explainrecords'} = &explainQuery($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'sql'});
 				$form{'queryrecords'} = &runQuery($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'sql'});
 			}
 			elsif($form{'action'} eq "managetables"){	#show table list
@@ -129,19 +133,11 @@ if(&getData()){	#get the data from the last page's form
 						$form{'tablelist'} .= "<tr>\n";
 						$form{'tablelist'} .= "<td>$_</td>\n";
 						$form{'tablelist'} .= "<th>\n";
-						$form{'tablelist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\" target=\"_blank\">\n";
-						$form{'tablelist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
-						$form{'tablelist'} .= "<input type=\"hidden\" name=\"tables\" value=\"$_\">\n";
-						$form{'tablelist'} .= "<input type=\"hidden\" name=\"action\" value=\"describe\">\n";
-						$form{'tablelist'} .= "<input type=\"submit\" value=\"Describe\">\n";
-						$form{'tablelist'} .= "</form>\n";
-						$form{'tablelist'} .= "</th>\n";
-						$form{'tablelist'} .= "<th>\n";
 						$form{'tablelist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">\n";
 						$form{'tablelist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
 						$form{'tablelist'} .= "<input type=\"hidden\" name=\"tables\" value=\"$_\">\n";
-						$form{'tablelist'} .= "<input type=\"hidden\" name=\"action\" value=\"droptable\">\n";
-						$form{'tablelist'} .= "<input type=\"submit\" value=\"Drop\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"action\" value=\"describe\">\n";
+						$form{'tablelist'} .= "<input type=\"submit\" value=\"Info\">\n";
 						$form{'tablelist'} .= "</form>\n";
 						$form{'tablelist'} .= "</th>\n";
 						$form{'tablelist'} .= "<th>\n";
@@ -150,6 +146,14 @@ if(&getData()){	#get the data from the last page's form
 						$form{'tablelist'} .= "<input type=\"hidden\" name=\"tables\" value=\"$_\">\n";
 						$form{'tablelist'} .= "<input type=\"hidden\" name=\"action\" value=\"emptytable\">\n";
 						$form{'tablelist'} .= "<input type=\"submit\" value=\"Empty\">\n";
+						$form{'tablelist'} .= "</form>\n";
+						$form{'tablelist'} .= "</th>\n";
+						$form{'tablelist'} .= "<th>\n";
+						$form{'tablelist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"tables\" value=\"$_\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"action\" value=\"droptable\">\n";
+						$form{'tablelist'} .= "<input type=\"submit\" value=\"Drop\">\n";
 						$form{'tablelist'} .= "</form>\n";
 						$form{'tablelist'} .= "</th>\n";
 						$form{'tablelist'} .= "</tr>\n";
@@ -161,6 +165,7 @@ if(&getData()){	#get the data from the last page's form
 			elsif($form{'action'} eq "describe"){	#display table list
 				if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
 					$form{'queryrecords'} = &runQuery($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "DESCRIBE $1;");
+					$form{'statusrecords'} = &runQueryVert($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "SHOW TABLE STATUS LIKE '$1';");
 				}
 				else{$error = "Table name contains invalid characters";}
 			}
@@ -495,7 +500,7 @@ if(&getData()){	#get the data from the last page's form
 			elsif($form{'action'} eq "insertchoosetable"){	#pick what table to run the query type on
 				$form{'tablelist'} = "";
 				if(my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
-					for(my $tCount = 0; $tCount <= $#tables; $tCount++){$form{'tablelist'} .= "<tr><th><input type=\"radio\" name=\"tables\" value=\"$tables[$tCount]\"></th><td>$tables[$tCount]</td></tr>\n";}	#convert to html format
+					for(my $tCount = 0; $tCount <= $#tables; $tCount++){$form{'tablelist'} .= "<option value=\"$tables[$tCount]\">$tables[$tCount]</option>\n";}	#convert to html format
 					delete($form{'tables'});	#wipe this before the user makes a talbe choice
 					foreach my $key (keys %form){	#delete any pending insert records from a unfinished insert
 						if($key =~ m/^insertdata\d+$/){delete $form{$key};}
@@ -506,13 +511,10 @@ if(&getData()){	#get the data from the last page's form
 			elsif($form{'action'} eq "insertform"){	#display insert form
 				if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
 					my $table = $1;
-					if(my @fields = &getFields($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
+					if(my @fields = &getFieldsShort($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
 						$form{'input'} = &createInsertForm($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $table);
 						$form{'fields'} = "";
-						foreach(@fields){	#create the field name headings
-							$_ =~ s/^$table\.//;	#we just want the field name not the table name aswell
-							$form{'fields'} .= "<th>$_</th>";
-						}
+						foreach(@fields){$form{'fields'} .= "<th>$_</th>";}	#create the field name headings
 						&updateKey($form{'key'});
 					}
 				}	
@@ -521,27 +523,25 @@ if(&getData()){	#get the data from the last page's form
 			elsif($form{'action'} eq "insert"){	#add the record to the list of pending records
 				if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
 					my $table = $1;
-					if(my @fields = &getFields($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
-						my $rCount = 0;
-						while(exists($form{'insertdata' . $rCount})){$rCount++;}	#find how many insert records we already have
-						$form{'insertdata' . $rCount} = "";
-						my $fCount = 0;
-						while(exists($form{'insert_' . $fCount})){	#loop through all of the fields creating an insert record
-							$form{'insertdata' . $rCount} .= $form{'insert_' . $fCount} . "¬";
-							$fCount++;
+					if(my @fields = &getFieldsShort($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
+						my $sql = "INSERT INTO $table (";	#starting sql
+						$sql .= join(",", @fields) . ") VALUES(";	#add the table fields	
+						my $dbh = DBI -> connect("DBI:mysql:database=$form{'database'};host=$form{'host'}", $form{'user'}, $form{'password'});
+						if($dbh){
+							for(my $i = 0; $i <= $#fields; $i++){
+								if($form{"insert_" . $i} eq ""){$sql .= "'',";}	#now value entered
+								else{$sql .= $dbh -> quote($form{"insert_" . $i}) . ",";}
+							}
+							$dbh -> disconnect();
 						}
-						chop $form{'insertdata' . $rCount};
-						$form{'input'} = &createInsertForm($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $table);
-						$form{'fields'} = "";
-						foreach(@fields){	#create the field name headings
-							$_ =~ s/^$table\.//;	#we just want the field name not the table name aswell
-							$form{'fields'} .= "<th>$_</th>";
-						}
-						&updateKey($form{'key'});
-						$form{'action'} = "insertform";	#got back to the same page we came from
+						else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+						$sql = substr($sql, 0, (length($sql) - 1));	#get rid of the last comma
+						$sql .= ");";	#ending sql
+						$form{'affected'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $sql);	#insert the data
+						$form{'code'} = &displaySQL($sql);
+						$form{'action'} = "insertcomplete";	#got back to the same page we came from
 					}
 				}
-				else{$error = "Table name contains invalid characters";}				
 			}
 			elsif($form{'action'} eq "exportdump"){	#send the dump file to the browser
 				&createDumpFile();	#make the export file
@@ -571,7 +571,12 @@ if(&getData()){	#get the data from the last page's form
 		else{$form{'action'} = "login";}	#display the starting page
 	}
 }
-if($form{'action'} ne "exportdump" || $error){&parsePage($form{'action'});}	#only show a html template if we are not outputting text etc.
+if($form{'action'} ne "exportdump" || $error){	#only show a html template if we are not outputting text etc.
+	print "Content-type: text/html\n\n";
+	&parsePage("header", 1);
+	&parsePage($form{'action'}, 0);
+	&parsePage("footer", 1);
+}
 exit(0);
 ##################################################################################################################
 sub composeSelect{	#generates the sql code for a select query
@@ -690,16 +695,22 @@ sub createInsertForm{
 			my $names = $query ->{'NAME'};	#all returned field names
 			my $html = "";
 			my $fCount = 0;
+			#print "Content-type: text\html\n\n";
 			while(my @row = $query -> fetchrow_array()){
-				$html .= "<tr><th>$row[0]</th>";
+				$html .= "<tr><th valign=\"top\">$row[0]</th>";
 				$html .= "<td>";
-				if($row[1] =~ m/hello/){}
+				#print "row[1] = $row[1]<br>\n";
+				if($row[1] =~ m/^tinytext|text|mediumtext|longtext|tinyblob|blob|mediumblob|longblob$/){	#these types need an text area instead
+					$html .= "<textarea name=\"insert_$fCount\" wrap=\"off\" cols=\"30\" rows=\"10\">";
+					if($row[4]){$html .= $row[4];}	#add default value
+					$html .= "</textarea>";
+				}
 				else{	#text type entry (defualt)
-					$html .= "<input type=\"text\" name=\"insert_$fCount\"";
+					$html .= "<input type=\"text\" name=\"insert_$fCount\" size=\"35\"";
 					if($row[4]){$html .= " value=\"$row[4]\">";}	#add default value
 					else{$html .= ">";}
 				}
-				$html .= "</td>";				
+				$html .= "</td><td valign=\"top\">$row[1]</td>";				
 				$html .= "</tr>\n";
 				$fCount++;
 			}
@@ -759,4 +770,82 @@ sub createDumpFile{
 		close(EXPORT);
 	}
 	else{$error = "Unable to create export file: $!";}
+}
+####################################################################################################################
+sub queueInsert{	#display the insert page and queue the pending insert records
+	print "Content-type: text/html\n\n";
+					use Data::Dumper;
+					print Dumper(%form);
+	if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
+		my $table = $1;
+		if(my @fields = &getFields($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
+			my $rCount = 0;
+			while(exists($form{'insertdata' . $rCount})){
+				#print "insertdata$rCount alread exists with '" . $form{'insertdata' . $rCount} . "'<br0>\n";
+			
+			$rCount++;}	#find how many insert records we already have
+			print "got a total of $rCount previous records<br>\n";
+			$form{'insertdata' . $rCount} = "";
+			for(my $fCount = 0; $fCount <= $#fields; $fCount++){	#loop through all of the fields creating an insert record
+				$form{'insertdata' . $rCount} .= &toHex($form{'insert_' . $fCount}) . "¬";
+			}
+			chop $form{'insertdata' . $rCount};	#get rid of the last separator
+			$form{'input'} = &createInsertForm($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $table);
+			$form{'fields'} = "";
+			foreach(@fields){	#create the field name headings
+				$_ =~ s/^$table\.//;	#we just want the field name not the table name aswell
+				$form{'fields'} .= "<th>$_</th>";
+			}
+			$form{'fields'} .= "<th>&nbsp;</th>\n";	#make an extra column for the delete buttons
+			#now show the previously stored rows
+			$form{'currentrecords'} = "";
+			foreach my $key (keys %form){	#search through the form/session data
+				print "key $key value $form{$key}<br>\n";
+				if($key =~ m/^insertdata(\d+)$/){	#found a preveious record
+					if($form{$key} ne ""){	#we have some data in the current record
+						my $id = $1;	#so we can delete this record
+						$form{'currentrecords'} .= "<tr>";
+						my @pFields = split(/¬/, $form{$key});
+						for(my $pCount = 0; $pCount <= $#fields; $pCount++){	#find the different fields
+							if(defined($pFields[$pCount])){	#display the entered value
+								$pFields[$pCount] = &fromHex($pFields[$pCount]);	#convert from hex to display
+								$form{'currentrecords'} .= "<td>$pFields[$pCount]</td>";
+							}
+							else{$form{'currentrecords'} .= "<td>&nbsp;</td>";}	#no value entered for this field
+						}
+						$form{'currentrecords'} .= "<td valign=\"top\"><form action=\"$ENV{'SCRIPT_NAME'}\" method=\"post\">";
+						$form{'currentrecords'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">";
+						$form{'currentrecords'} .= "<input type=\"hidden\" name=\"action\" value=\"insertremovequeued\">";
+						$form{'currentrecords'} .= "<input type=\"hidden\" name=\"qid\" value=\"$id\">";
+						$form{'currentrecords'} .= "<input type=\"submit\" value=\"Remove\">";
+						$form{'currentrecords'} .= "</form></td></tr>\n";
+					}
+					else{delete($form{$key});}	#we fix our own problems here!
+				}
+			}
+			if($form{'currentrecords'} eq ""){$form{'currentrecords'} = "<tr><td colspan=\"" . ($#fields + 1) . "\"><i>No records waiting to be inserted</i></td></tr>\n";}
+			&updateKey($form{'key'});
+		}
+	}
+	else{$error = "Table name contains invalid characters";}				
+}
+##################################################################################################################
+sub toHex{	#converts a string to hex
+	my $string = shift;
+	$string =~ s/([\W|\w])/"\\x" . uc(sprintf("%2.2x",ord($1)))/eg;
+	return $string;
+}
+##################################################################################################################
+sub fromHex{	#converts from hex to ASCII
+	my $string = shift;
+	$string =~ s/\\x([a-fA-F0-9]{2,2})/chr(hex($1))/eg;
+	return $string;
+}
+##################################################################################################################
+sub displaySQL{	#safely formats sql for displaying in a browser
+	my $sql = shift;
+	$sql =~ s/</&lt;/g;
+	$sql =~ s/>/&gt;/g;	
+	$sql =~ s/\n/<br>/g;
+	return $sql;
 }

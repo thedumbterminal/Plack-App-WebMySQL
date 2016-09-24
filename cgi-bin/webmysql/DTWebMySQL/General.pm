@@ -12,13 +12,7 @@ sub getData{	#gets cgi form data into a hash
 	#foreach (keys %ENV){print STDERR "$_ = $ENV{$_}\n";}
 	my $cgi = CGI::new();
 	foreach($cgi -> param()){
-		if($cgi -> param($_) !~ m/\;/){
-			$form{$_} = $cgi -> param($_);
-		}
-		else{
-			$error = "One of the values submitted from the last page contained invalid characters";
-			return 0;
-		}
+		$form{$_} = $cgi -> param($_);
 		#print STDERR "$_ = $form{$_}\n";
 	}
 	return 1;
@@ -34,8 +28,8 @@ sub replace{	#make sure we dont get any undefined values when replacing template
 ###############################################################################################################
 sub parsePage{	#displays a html page
 	my $page = shift;
-	print "Content-type: text/html\n\n";
-	if($error){	#an error has not been encountered
+	my $ignoreError = shift;
+	if($error && !$ignoreError){	#an error has not been encountered and we are not ignoring it
 		$page = "error";
 		print STDERR "$0: $error\n";	#log this error too
 	}
