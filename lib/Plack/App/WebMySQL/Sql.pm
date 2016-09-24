@@ -2,9 +2,9 @@
 #mt 29/11/2003 2.5	updated getDatabases sub incase "SHOW DATABASES" is disabled
 #mt 14/03/2005	2.7	added explainquery function
 #							added runqueryvert function
-package DTWebMySQL::Sql;
+package Plack::App::WebMySQL::Sql;
 BEGIN {
-	use DTWebMySQL::Main;
+	use Plack::App::WebMySQL;
    use Exporter();
 	@ISA = qw(Exporter);
    @EXPORT = qw(testConnect

@@ -1,10 +1,10 @@
 #the dumb terminal webmysql module
 #mt 21/09/2003 2.3	updated readkey sub
 #mt 28/09/2003 2.3	updated readkey sub
-package DTWebMySQL::Key;
+package Plack::App::WebMySQL::Key;
 BEGIN {
    use Exporter();
-	use DTWebMySQL::Main;
+	use Plack::App::WebMySQL;
 	@ISA = qw(Exporter);
    @EXPORT = qw(expireKeys createKey readKey updateKey deleteKey);
 }
