@@ -16,7 +16,7 @@
                         <p>
 									A web interface to a <a href="http://www.mysql.com" target="_blank">MySQL</a> database server.<br>
 									For a screenshot, please click <a href="webmysql-screenshot.jpg" target="_blank">here</a> (36k).
-									Also a <a href="/cgi-bin/webmysql-2.2/webmysql.cgi" target="_blank">fully working demo</a> is available, you will
+									Also a <a href="/cgi-bin/webmysql-2.3/webmysql.cgi" target="_blank">fully working demo</a> is available, you will
 									need to supply your own MySQL connection details to login.
                         </p>
                         <h2>Features</h2>
@@ -36,15 +36,14 @@
                               <li>Fully customisable look and feel</li>
                               <li>HTML results or downloadable CSV file</li>
                               <li>mysqldump file import</li>
+										<li>Wipe databases</li>
                            </ul>
                         </p>
                         <h2>Requirements</h2>
                         <p>
                            <ul>
                               <li>Linux operating system</li>
-                              <li>Perl installed</li>
-                              <li>Perl MySQL modules</li>
-                              <li>MySQL server</li>
+                              <li>MySQL server access</li>
                               <li>Web server with CGI support</li>
                            </ul>
                         </p>
@@ -68,11 +67,17 @@
 						<tr>
 							<td>
                         <p>
+									<b>Version 2.3</b>&nbsp;&nbsp;&nbsp;(29th September 2003)
+									<dir>
+										Lots of bug fixes.<br>
+										Database wiping now supported.<br>
+										Login method updated.
+									</dir>
 									<b>Version 2.2</b>&nbsp;&nbsp;&nbsp;(30th June 2003)
 									<dir>
-										mysqldump file import<br>
-										Session key timeout updated<br>
-										Null values supported in table creation
+										mysqldump file import.<br>
+										Session key timeout updated.<br>
+										Null values supported in table creation.
 									</dir>
 									<b>Version 2.1</b>&nbsp;&nbsp;&nbsp;(27th May 2003)
 									<dir>
@@ -124,7 +129,8 @@
 							<td>
                         <table summary="downloads" width="100%">
 									<tr bgcolor="#CCCCCC"><th>Version</th><th>Size</th><th>Date</th><th>Notes</th></tr>
-									<tr><td><a href="files/webmysql-2.2.tar.bz2">2.2</a></td><td>582k</td><td>30/06/2003</td><td>(Latest), no CSV support</td></tr>
+									<tr><td><a href="files/webmysql-2.3.tar.bz2">2.3</a></td><td>659k</td><td>29/09/2003</td><td>(Latest), no CSV support</td></tr>
+									<tr><td><a href="files/webmysql-2.2.tar.bz2">2.2</a></td><td>585k</td><td>30/06/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-2.1.tar.bz2">2.1</a></td><td>582k</td><td>27/05/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-2.0.tar.bz2">2.0</a></td><td>576k</td><td>03/05/2003</td><td>no CSV support</td></tr>
 									<tr><td><a href="files/webmysql-1.6.tar.bz2">1.6</a></td><td>431k</td><td>13/01/2002</td><td>CSV support</td></tr>

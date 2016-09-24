@@ -1,7 +1,7 @@
 <html>
 	<head>
 		<link rel="stylesheet" type="text/css" href="/webmysql-<!--version-->/main.css" title="Main">
-		<title>WebMySQL: Query</title>
+		<title>WebMySQL: Import dump file</title>
 	</head>
 	<body>
 		<table align="center" bgcolor="#8899DD" width="100%" border="1">
@@ -13,12 +13,7 @@
 				<th><a href="<!--self-->?key=<!--key-->&amp;action=logout">Logout</a></th>
 			</tr>
 		</table>
-		<p>Please select a query type.</p>
-		<a href="<!--self-->?key=<!--key-->&amp;action=selectchoosetable">Select</a><br>
-		Update<br>
-		Replace<br>
-		<a href="<!--self-->?key=<!--key-->&amp;action=insertchoosetable">Insert</a><br>
-		<br><br>
-		<a href="<!--self-->?key=<!--key-->&amp;action=importdumpform">Import mysqldump file</a>
+		<p>The dumpfile <b><!--dumpfile--></b> was successfully imported.</p>
+		<p><!--commands--> statements were executed.</p>
 	</body>
 </html>

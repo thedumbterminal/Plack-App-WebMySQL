@@ -1,0 +1,37 @@
+<html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="/webmysql-<!--version-->/main.css" title="Main">
+		<title>WebMySQL: Import dump file</title>
+	</head>
+	<body>
+		<table align="center" bgcolor="#8899DD" width="100%" border="1">
+			<tr>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=query">Query</a></th>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=managetables">Manage tables</a></th>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=managedatabases">Manage databases</a></th>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=serverinfo">Server information</a></th>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=logout">Logout</a></th>
+			</tr>
+		</table>
+		<p>Please select a dump file to import.</p>
+		<p>Make sure that the filename only contains the following characters:</p>
+		<ul>
+			<li>Alphanumeric</li>
+			<li>Full stop (.)</li>
+			<li>Underscore (_)</li>
+			<li>Dash (-)</li>
+		</ul>
+		<p>Unless specified, the <b><!--database--></b> database will be used.</p>
+		<form action="<!--self-->" method="POST" enctype="multipart/form-data">
+			<input type="hidden" name="key" value="<!--key-->">
+			<input type="hidden" name="action" value="importdump">
+			<table align="center" bgcolor="#8899DD" border="1">
+				<tr><td>File</td><th><input type="file" name="dumpfile"></th></tr>
+			</table>
+			<br>
+			<table align="center" bgcolor="#8899DD" border="1">
+				<tr><td><input type="submit" value="Continue"></td></tr>
+			</table>
+		</form>
+	</body>
+</html>
