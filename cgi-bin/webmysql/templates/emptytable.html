@@ -1,16 +1,21 @@
 <html>
 	<head>
 		<link rel="stylesheet" type="text/css" href="/webmysql-<!--version-->/main.css" title="Main">
-		<title>WebMySQL: Chose table</title>
+		<title>WebMySQL: Empty table</title>
 	</head>
 	<body>
 		<!--menu-->
-		<p>Please select the table(s) you wish the query to run on.</p>
+		<p>
+			Are you sure you wish to empty the following table?
+			<dir><b><!--tables--></b></dir>
+			It contains <b><!--rows--></b> rows of data.
+		</p>
 		<form action="<!--self-->" method="POST">
 			<input type="hidden" name="key" value="<!--key-->">
-			<input type="hidden" name="action" value="insertform">
+			<input type="hidden" name="action" value="emptytableconfirm">
 			<table align="center" bgcolor="#8899DD" border="1">
-				<!--tablelist-->
+				<tr><th><input checked type="radio" name="answer" value="no"></th><td>No</td></tr>
+				<tr><th><input type="radio" name="answer" value="yes"></th><td>Yes</td></tr>
 			</table>
 			<br>
 			<table align="center" bgcolor="#8899DD" border="1">

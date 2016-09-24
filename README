@@ -1,4 +1,4 @@
-                                       WebMYSQL v2.3
+                                       WebMYSQL v2.4
                                  (Web based MySQL interface)
                                        --------------
 
@@ -6,6 +6,7 @@ Copyright 2003 Dumb Terminal Creations <enquiries@thedumbterminal.co.uk>
 This program is free software; you may redistribute it in it's original format.
 
 DISCLAIMER OF WARRANTY
+
 THIS SOFTWARE AND THE ACCOMPANYING FILES ARE SOLD "AS IS" AND WITHOUT WARRANTIES
 AS TO PERFORMANCE OR MERCHANTABILITY OR ANY OTHER WARRANTIES WHETHER EXPRESSED OR IMPLIED.
 
@@ -31,6 +32,7 @@ as these are used as placeholders for the program. You may however move the loca
 You may also change the name of the webmysql program itself, this should be done in order to keep the program hidden from unwanted visitors.
 
 
-BUGS
+NOTES
+
 Some webservers do not like CGI executables with no extension, if you see the binary printed to your browser just add a extension of ".cgi".
 Any bugs found please report to enquiries@thedumbterminal.co.uk.

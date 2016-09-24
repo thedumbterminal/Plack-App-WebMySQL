@@ -1,35 +1,41 @@
 #!/usr/bin/perl -w
 #web interface to a mysql server
+#mt 21/09/2003 2.3	fixed bug when deleting the current database
+#mt 28/09/2003 2.3	fixed ie logon by removing logon confirmation page
+#mt 29/09/2003 2.3	fixed mysqldump import bug
+#							wipe database now supported
+#mt 16/11/2003 2.4	import file multiline single query bug fixed
+#							empty table now supported
+#mt 17/11/2003 2.4	fixed msdos import file bug
 use strict;
 use CGI;
 use DBI;
+#use lib ".";
 use DBD::mysql;
 use DTWebMySQL::Main;
 use DTWebMySQL::Key;
 use DTWebMySQL::General;
 use DTWebMySQL::Sql;
+use constant;	#for perl2exe
+$| = 1;	#disable output buffering, helps with CGIWrap
 &expireKeys;	#remove old keys from server
 if(&getData()){	#get the data from the last page's form
-	if($form{'key'}){
+	if($form{'key'}){	#got a key do normal actions
 		if(&readKey($form{'key'})){	#read the server side cookie for state
-			if($form{'action'} eq "connect"){	#show login result
-				if(&testConnect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){	#mysql login detail are correct
-					&updateKey($form{'key'});
-				}
-			}
-			elsif($form{'action'} eq "mainmenu"){}	#just display a template
+			$form{'menu'} = &parseFragmentToString("menu");	#load the top menu
+			if($form{'action'} eq "mainmenu"){}	#just display a template
 			elsif($form{'action'} eq "logout"){&deleteKey($form{'key'});}	#remove the server side cookie
 			elsif($form{'action'} eq "query"){	#pick what type of query to run
 				&updateKey($form{'key'});
 			}
-			elsif($form{'action'} eq "choosetable"){	#pick what table to run the query type on
+			elsif($form{'action'} eq "selectchoosetable"){	#pick what table to run the query type on
 				$form{'tablelist'} = "";
 				if(my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
 					for(my $tCount = 0; $tCount <= $#tables; $tCount++){$form{'tablelist'} .= "<tr><th><input type=\"checkbox\" name=\"table$tCount\" value=\"$tables[$tCount]\"></th><td>$tables[$tCount]</td></tr>\n";}	#convert to html format
 					&updateKey($form{'key'});
 				}
 			}
-			elsif($form{'action'} eq "choosefields"){	#pick what fields to use in the query
+			elsif($form{'action'} eq "selectchoosefields"){	#pick what fields to use in the query
 				my @tablesTemp;
 				foreach my $name (keys %form){
 					if($name =~ m/^table\d+$/){push(@tablesTemp, $form{$name});}
@@ -44,7 +50,12 @@ if(&getData()){	#get the data from the last page's form
 				}
 				else{$error = "You did not select any tables to query";}
 			}
-			elsif($form{'action'} eq "choosecriteria"){	#pick the criteria for the query
+			elsif($form{'action'} eq "selectchoosecriteria"){	#pick the criteria for the query
+				my @tmpFields;
+				foreach my $name (keys %form){
+					if($name =~ m/^field\d+$/){push(@tmpFields, $form{$name});}
+				}
+				$form{'fields'} = join(", ", @tmpFields);	#for the server side cookie
 				if(my @fields = &getFields($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
 					if($form{'tables'} =~ m/, /){	#more than one table selected, show the join options
 						my @tables = split(/, /, $form{'tables'});
@@ -101,7 +112,6 @@ if(&getData()){	#get the data from the last page's form
 							$form{'orderbylist'} .= "<option value=\"$_\">$_</option>\n";
 						}
 					}
-					$form{'fields'} = join(", ", @fields);	#for the server side cookie
 					&updateKey($form{'key'});
 				}
 			}
@@ -131,6 +141,14 @@ if(&getData()){	#get the data from the last page's form
 						$form{'tablelist'} .= "<input type=\"submit\" value=\"Drop\">\n";
 						$form{'tablelist'} .= "</form>\n";
 						$form{'tablelist'} .= "</th>\n";
+						$form{'tablelist'} .= "<th>\n";
+						$form{'tablelist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"tables\" value=\"$_\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"action\" value=\"emptytable\">\n";
+						$form{'tablelist'} .= "<input type=\"submit\" value=\"Empty\">\n";
+						$form{'tablelist'} .= "</form>\n";
+						$form{'tablelist'} .= "</th>\n";
 						$form{'tablelist'} .= "</tr>\n";
 					}
 					delete $form{'tables'};
@@ -157,6 +175,22 @@ if(&getData()){	#get the data from the last page's form
 				if($form{'answer'} eq "yes"){	#user confirmed drop
 					if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
 						$form{'queryrecords'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "DROP TABLE $1;");
+					}
+					else{$error = "Table name contains invalid characters";}
+				}
+				else{$error = "You did not confirm that you wanted the table dropped";}
+			}
+			elsif($form{'action'} eq "emptytable"){
+				if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
+					$form{'rows'} = &getTableRows($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'});
+					&updateKey($form{'key'});
+				}
+				else{$error = "Table name contains invalid characters";}
+			}
+			elsif($form{'action'} eq "emptytableconfirm"){
+				if($form{'answer'} eq "yes"){	#user confirmed drop
+					if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
+						$form{'queryrecords'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "DELETE FROM $1;");
 					}
 					else{$error = "Table name contains invalid characters";}
 				}
@@ -253,12 +287,12 @@ if(&getData()){	#get the data from the last page's form
 					my @nulls = split(/¬/, $form{'creationfnulls'});
 					for(my $count = 0; $count <= $#names; $count++){
 						$sql .= "$names[$count] $types[$count]";
-						if($sizes[$count] ne ""){$sql .= "($sizes[$count])";}	#include size for this field
+						if($sizes[$count] != 0){$sql .= "($sizes[$count])";}	#include size for this field
 						if($nulls[$count] eq "N"){$sql .= " NOT NULL";}	#this field is not null
 						if($count < $#names){$sql .= ", ";}
 					}
 					$sql .= ");";
-					print STDERR "$sql\n";
+					#print STDERR "$sql\n";
 					$form{'queryrecords'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $sql);
 				}
 				else{$error = "This table has no fields yet";}
@@ -311,25 +345,33 @@ if(&getData()){	#get the data from the last page's form
 					foreach(@dbs){	#convert to html format
 						$form{'databaselist'} .= "<tr>\n";
 						$form{'databaselist'} .= "<td>$_</td>\n";
-						$form{'databaselist'} .= "<th>\n";
-						$form{'databaselist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">\n";
-						$form{'databaselist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
-						$form{'databaselist'} .= "<input type=\"hidden\" name=\"db\" value=\"$_\">\n";
-						$form{'databaselist'} .= "<input type=\"hidden\" name=\"action\" value=\"usedatabase\">\n";
-						$form{'databaselist'} .= "<input type=\"submit\" value=\"Use\">\n";
-						$form{'databaselist'} .= "</form>\n";
+						$form{'databaselist'} .= "<th>";
+						$form{'databaselist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">";
+						$form{'databaselist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">";
+						$form{'databaselist'} .= "<input type=\"hidden\" name=\"db\" value=\"$_\">";
+						$form{'databaselist'} .= "<input type=\"hidden\" name=\"action\" value=\"usedatabase\">";
+						$form{'databaselist'} .= "<input type=\"submit\" value=\"Use\">";
+						$form{'databaselist'} .= "</form>";
 						$form{'databaselist'} .= "</th>\n";
-						$form{'databaselist'} .= "<th>\n";
-						if($_ eq "mysql"){$form{'databaselist'} .= "&nbsp;"}	#cant delete this table
+						if($_ eq "mysql"){$form{'databaselist'} .= "<th>&nbsp;</th><th>&nbsp;</th>\n";}	#cant delete this table
 						else{
-							$form{'databaselist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">\n";
-							$form{'databaselist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
-							$form{'databaselist'} .= "<input type=\"hidden\" name=\"db\" value=\"$_\">\n";
-							$form{'databaselist'} .= "<input type=\"hidden\" name=\"action\" value=\"dropdatabase\">\n";
-							$form{'databaselist'} .= "<input type=\"submit\" value=\"Drop\">\n";
-							$form{'databaselist'} .= "</form>\n";
+							$form{'databaselist'} .= "<th>";
+							$form{'databaselist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"db\" value=\"$_\">";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"action\" value=\"dropdatabase\">";
+							$form{'databaselist'} .= "<input type=\"submit\" value=\"Drop\">";
+							$form{'databaselist'} .= "</form>";
+							$form{'databaselist'} .= "</th>";
+							$form{'databaselist'} .= "<th>";
+							$form{'databaselist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"db\" value=\"$_\">";
+							$form{'databaselist'} .= "<input type=\"hidden\" name=\"action\" value=\"wipedatabase\">";
+							$form{'databaselist'} .= "<input type=\"submit\" value=\"Empty\">";
+							$form{'databaselist'} .= "</form>";
+							$form{'databaselist'} .= "</th>\n";
 						}
-						$form{'databaselist'} .= "</th>\n";
 						$form{'databaselist'} .= "</tr>\n";
 					}
 					delete $form{'db'};
@@ -347,6 +389,32 @@ if(&getData()){	#get the data from the last page's form
 				if($form{'answer'} eq "yes"){	#user confirmed drop
 					if($form{'db'} =~ m/^(\w+)$/){	#safety check on table name
 						$form{'queryrecords'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "DROP DATABASE $1;");
+						if($form{'queryrecords'}){	#drop database worked
+							if($form{'db'} eq $form{'database'}){	#dropped the current database
+								delete $form{'database'};	#stop using the now deleted database
+								&updateKey($form{'key'});	#update the session								
+							}
+						}
+					}
+					else{$error = "Database name contains invalid characters";}
+				}
+				else{$error = "You did not confirm that you wanted the database dropped";}
+			}
+			elsif($form{'action'} eq "wipedatabase"){
+				if($form{'db'} =~ m/^(\w+)$/){	#safety check on table name
+					$form{'numtables'} = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'db'});
+					&updateKey($form{'key'});
+				}
+				else{$error = "Database name contains invalid characters";}
+			}
+			elsif($form{'action'} eq "wipedatabaseconfirm"){
+				if($form{'answer'} eq "yes"){	#user confirmed drop
+					if($form{'db'} =~ m/^(\w+)$/){	#safety check on table name
+						my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'db'});	#find the tables for this database
+						foreach(@tables){	#delete every table
+							my $result = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'db'}, "DROP TABLE $_;");
+							if(!$result){last;}	#if we get an error stop now
+						}
 					}
 					else{$error = "Database name contains invalid characters";}
 				}
@@ -421,16 +489,74 @@ if(&getData()){	#get the data from the last page's form
 				}
 				else{$error = "You did not select a dumpfile to import";}
 			}
+			elsif($form{'action'} eq "insertchoosetable"){	#pick what table to run the query type on
+				$form{'tablelist'} = "";
+				if(my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
+					for(my $tCount = 0; $tCount <= $#tables; $tCount++){$form{'tablelist'} .= "<tr><th><input type=\"radio\" name=\"tables\" value=\"$tables[$tCount]\"></th><td>$tables[$tCount]</td></tr>\n";}	#convert to html format
+					delete($form{'tables'});	#wipe this before the user makes a talbe choice
+					foreach my $key (keys %form){	#delete any pending insert records from a unfinished insert
+						if($key =~ m/^insertdata\d+$/){delete $form{$key};}
+					}
+					&updateKey($form{'key'});
+				}
+			}
+			elsif($form{'action'} eq "insertform"){	#display insert form
+				if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
+					my $table = $1;
+					if(my @fields = &getFields($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
+						$form{'input'} = &createInsertForm($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $table);
+						$form{'fields'} = "";
+						foreach(@fields){	#create the field name headings
+							$_ =~ s/^$table\.//;	#we just want the field name not the table name aswell
+							$form{'fields'} .= "<th>$_</th>";
+						}
+						&updateKey($form{'key'});
+					}
+				}	
+				else{$error = "Table name contains invalid characters";}
+			}
+			elsif($form{'action'} eq "insert"){	#add the record to the list of pending records
+				if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
+					my $table = $1;
+					if(my @fields = &getFields($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
+						my $rCount = 0;
+						while(exists($form{'insertdata' . $rCount})){$rCount++;}	#find how many insert records we already have
+						$form{'insertdata' . $rCount} = "";
+						my $fCount = 0;
+						while(exists($form{'insert_' . $fCount})){	#loop through all of the fields creating an insert record
+							$form{'insertdata' . $rCount} .= $form{'insert_' . $fCount} . "¬";
+							$fCount++;
+						}
+						chop $form{'insertdata' . $rCount};
+						$form{'input'} = &createInsertForm($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $table);
+						$form{'fields'} = "";
+						foreach(@fields){	#create the field name headings
+							$_ =~ s/^$table\.//;	#we just want the field name not the table name aswell
+							$form{'fields'} .= "<th>$_</th>";
+						}
+						&updateKey($form{'key'});
+						$form{'action'} = "insertform";	#got back to the same page we came from
+					}
+				}
+				else{$error = "Table name contains invalid characters";}				
+			}
 			else{$error = "Invalid action: $form{'action'}";}	#a strange action has been found
 		}
-		&parsePage($form{'action'});
+		else{$form{'action'} = "login";}	#send to the starting page if no key has been given, or not logging in
 	}
-	else{	#display the starting page
-		$form{'key'} = &createKey();	#created new server side cookie file
-		&parsePage("login");
+	else{	#must be a starting page or a login
+		if($form{'action'} && $form{'action'} eq "connect"){	#a login
+			if(&testConnect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){	#mysql login detail are correct
+				$form{'key'} = &createKey();	#created new server side cookie file
+				&updateKey($form{'key'});
+				$form{'action'} = "mainmenu";	#display the main menu
+				$form{'menu'} = &parseFragmentToString("menu");	#load the top menu
+			}
+		}
+		else{$form{'action'} = "login";}	#display the starting page
 	}
 }
-else{&parsePage("error");}
+&parsePage($form{'action'});
 exit(0);
 ##################################################################################################################
 sub composeSelect{	#generates the sql code for a select query
@@ -498,7 +624,7 @@ sub uploadFile{
 		if($totalsize > 0){$result = 1;}	#got a valid file
 		else{
 			unlink("dump_uploads/$file");
-			$error = "File: $file was empty $!";
+			$error = "File: $file was empty";
 		}
 	}
 	else{$error = "Could not save file: $file";}
@@ -511,16 +637,53 @@ sub processFile{
 		my $allSql = "";
 		while(<DUMP>){
 			chomp $_;
-			if($_ !~ m/^--/ && $_ ne ""){$allSql .= $_;}	#read all of the file in
+			$_ =~ s/\r//g;	#get rid of all trace of dos
+			if($_ !~ m/^--/ && $_ ne ""){$allSql .= $_ . " ";}	#read all of the file in
 		}
 		close(DUMP);
+		$allSql =~ s/(\n+)$//g;	#trim any ending newlines etc
 		my $count = 0;
-		foreach(split(/;/, $allSql)){
-			if(!&runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "$_;")){last;}
+		foreach(split(/; /, $allSql)){
+			chomp $_;
+			if($_ =~ m/^\w/){	#queries must start with a word
+				if(!&runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "$_;")){last;}
+			}
 			$count++;
 		}
 		return $count;
 	}
 	else{$error = "Could not read dump file: $0";}
+	return undef;
+}
+##################################################################################################################
+sub createInsertForm{
+	my($host, $user, $password, $database, $table) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
+	if($dbh){
+		my $query = $dbh -> prepare("DESCRIBE $table;");
+		if($query -> execute()){
+			my $names = $query ->{'NAME'};	#all returned field names
+			my $html = "";
+			my $fCount = 0;
+			while(my @row = $query -> fetchrow_array()){
+				$html .= "<tr><th>$row[0]</th>";
+				$html .= "<td>";
+				if($row[1] =~ m/hello/){}
+				else{	#text type entry (defualt)
+					$html .= "<input type=\"text\" name=\"insert_$fCount\"";
+					if($row[4]){$html .= " value=\"$row[4]\">";}	#add default value
+					else{$html .= ">";}
+				}
+				$html .= "</td>";				
+				$html .= "</tr>\n";
+				$fCount++;
+			}
+			$query -> finish();
+			return $html;
+		}
+		else{$error = "Problem with query: " . $dbh -> errstr;}
+		$dbh -> disconnect();
+	}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
 	return undef;
 }

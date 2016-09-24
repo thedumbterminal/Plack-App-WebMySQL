@@ -1,10 +1,11 @@
 #the dumb terminal webmysql module
+#mt 16/11/2003 2.4	added parseFragmentToString
 package DTWebMySQL::General;
 BEGIN {
    use Exporter();
 	use DTWebMySQL::Main;
 	@ISA = qw(Exporter);
-   @EXPORT = qw(getData replace parsePage);
+   @EXPORT = qw(getData replace parsePage parseFragmentToString);
 }
 ###############################################################################################################
 sub getData{	#gets cgi form data into a hash
@@ -33,7 +34,6 @@ sub replace{	#make sure we dont get any undefined values when replacing template
 ###############################################################################################################
 sub parsePage{	#displays a html page
 	my $page = shift;
-	my $version = "2.3";	#version of this code
 	print "Content-type: text/html\n\n";
 	if($error){	#an error has not been encountered
 		$page = "error";
@@ -41,6 +41,7 @@ sub parsePage{	#displays a html page
 	}
 	if(open(TEMPLATE, "<templates/$page.html")){
 		while(<TEMPLATE>){	#read the file a line at a time
+			$_ =~ s/<html>/<html>\n\t<!-- Template: $page.html -->/;
 			$_ =~ s/<!--self-->/$ENV{'SCRIPT_NAME'}/g;	#replace the name for this script
 			$_ =~ s/<!--server-->/$ENV{'HTTP_HOST'}/g;	#replace webserver name
 			$_ =~ s/<!--error-->/$error/g;	#replace the error message
@@ -60,6 +61,24 @@ sub parsePage{	#displays a html page
 </html>
 (NO TEMPLATE)
 	}
+}
+###############################################################################################################
+sub parseFragmentToString{	#save a html fragment to a string
+	my $page = shift;
+	my $string = "<!-- Template: $page.html -->\n";
+	if(open(TEMPLATE, "<templates/$page.html")){
+		while(<TEMPLATE>){	#read the file a line at a time
+			$_ =~ s/<!--self-->/$ENV{'SCRIPT_NAME'}/g;	#replace the name for this script
+			$_ =~ s/<!--server-->/$ENV{'HTTP_HOST'}/g;	#replace webserver name
+			$_ =~ s/<!--error-->/$error/g;	#replace the error message
+			$_ =~ s/<!--version-->/$version/g;	#replace version number
+			$_ =~ s/<!--(\w+)-->/&replace($1)/eg;	#replace the placeholders in the template
+			$string .= $_
+		}
+		close(TEMPLATE);
+	}
+	else{$error = "Cant open HTML fragment: $page";}
+	return $string;
 }
 ###############################################################################
 return 1;
