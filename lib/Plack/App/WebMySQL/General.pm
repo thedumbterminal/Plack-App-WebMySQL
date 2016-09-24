@@ -1,9 +1,9 @@
 #the dumb terminal webmysql module
 #mt 16/11/2003 2.4	added parseFragmentToString
-package DTWebMySQL::General;
+package Plack::App::WebMySQL::General;
 BEGIN {
    use Exporter();
-	use DTWebMySQL::Main;
+	use Plack::App::WebMySQL;
 	@ISA = qw(Exporter);
    @EXPORT = qw(getData replace parsePage parseFragmentToString);
 }
@@ -11,6 +11,7 @@ BEGIN {
 sub getData{	#gets cgi form data into a hash
 	#foreach (keys %ENV){print STDERR "$_ = $ENV{$_}\n";}
 	my $cgi = CGI::new();
+	%form = ();	#empty first as PSGI will keep globals set until the server is killed.
 	foreach($cgi -> param()){
 		$form{$_} = $cgi -> param($_);
 		#print STDERR "$_ = $form{$_}\n";
@@ -39,7 +40,7 @@ sub parsePage{	#displays a html page
 			$_ =~ s/<!--self-->/$ENV{'SCRIPT_NAME'}/g;	#replace the name for this script
 			$_ =~ s/<!--server-->/$ENV{'HTTP_HOST'}/g;	#replace webserver name
 			$_ =~ s/<!--error-->/$error/g;	#replace the error message
-			$_ =~ s/<!--version-->/$version/g;	#replace version number
+			$_ =~ s/<!--version-->/$VERSION/g;	#replace version number
 			$_ =~ s/<!--(\w+)-->/&replace($1)/eg;	#replace the placeholders in the template
          $_ =~ s|</body>|<br><br>\n<div align="center"><font size="2">&copy; <a href="http://www.thedumbterminal.co.uk" target="_blank">Dumb Terminal Creations</a></font></div>\n</body>|;
 			print;
@@ -50,7 +51,7 @@ sub parsePage{	#displays a html page
 		print << "(NO TEMPLATE)";
 <html>
 	<body>
-		Could not open HTML template: webmysql-$version/templates/$page.html
+		Could not open HTML template: webmysql/templates/$page.html
 	</body>
 </html>
 (NO TEMPLATE)
@@ -65,7 +66,7 @@ sub parseFragmentToString{	#save a html fragment to a string
 			$_ =~ s/<!--self-->/$ENV{'SCRIPT_NAME'}/g;	#replace the name for this script
 			$_ =~ s/<!--server-->/$ENV{'HTTP_HOST'}/g;	#replace webserver name
 			$_ =~ s/<!--error-->/$error/g;	#replace the error message
-			$_ =~ s/<!--version-->/$version/g;	#replace version number
+			$_ =~ s/<!--version-->/$VERSION/g;	#replace version number
 			$_ =~ s/<!--(\w+)-->/&replace($1)/eg;	#replace the placeholders in the template
 			$string .= $_
 		}

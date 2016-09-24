@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 #web interface to a mysql server
 #mt 21/09/2003 2.3	fixed bug when deleting the current database
 #mt 28/09/2003 2.3	fixed ie logon by removing logon confirmation page
@@ -14,15 +14,17 @@
 #							added explain to select queries
 #							added table status info
 use strict;
+use warnings;
 use CGI;
 use DBI;
 use DBD::mysql;
-use lib ".";
-use DTWebMySQL::Main;
-use DTWebMySQL::Key;
-use DTWebMySQL::General;
-use DTWebMySQL::Sql;
+use lib "lib";
+use Plack::App::WebMySQL;
+use Plack::App::WebMySQL::Key;
+use Plack::App::WebMySQL::General;
+use Plack::App::WebMySQL::Sql;
 use constant;	#for perl2exe
+$error = undef;	#reset this every time, as PSGI will keep it for the lifetime of the server
 $| = 1;	#disable output buffering, helps with CGIWrap
 &expireKeys;	#remove old keys from server
 if(&getData()){	#get the data from the last page's form
@@ -225,7 +227,7 @@ if(&getData()){	#get the data from the last page's form
 									$form{'currentfields'} = &getCreationFields();
 									$form{'removefields'} = "";
 									if($form{'creationfnames'}){
-										my @fields = split(/¬/, $form{'creationfnames'});
+										my @fields = split(/ï¿½/, $form{'creationfnames'});
 										foreach(@fields){$form{'removefields'} .= "<option value=\"$_\">$_</option>\n";}
 									}
 									&updateKey($form{'key'});
@@ -253,7 +255,7 @@ if(&getData()){	#get the data from the last page's form
 					if($form{'fsize'} eq ""){$form{'fsize'} = 0;}
 					my $found = 0;
 					if($form{'creationfnames'}){	#we have some fields already
-						foreach(split(/¬/, $form{'creationfnames'})){	#search the current list of field names to be
+						foreach(split(/ï¿½/, $form{'creationfnames'})){	#search the current list of field names to be
 							if($_ eq $form{'fname'}){
 								$found = 1;
 								last;
@@ -270,14 +272,14 @@ if(&getData()){	#get the data from the last page's form
 							$form{'creationfnulls'} = $form{'fnull'};
 						}
 						else{
-							$form{'creationfnames'} .= "¬$form{'fname'}";
-							$form{'creationftypes'} .= "¬$form{'ftype'}";
-							$form{'creationfsizes'} .= "¬$form{'fsize'}";
-							$form{'creationfnulls'} .= "¬$form{'fnull'}";
+							$form{'creationfnames'} .= "ï¿½$form{'fname'}";
+							$form{'creationftypes'} .= "ï¿½$form{'ftype'}";
+							$form{'creationfsizes'} .= "ï¿½$form{'fsize'}";
+							$form{'creationfnulls'} .= "ï¿½$form{'fnull'}";
 						}	#append
 						&updateKey($form{'key'});
 						$form{'currentfields'} = &getCreationFields();
-						my @fields = split(/¬/, $form{'creationfnames'});
+						my @fields = split(/ï¿½/, $form{'creationfnames'});
 						$form{'removefields'} = "";
 						foreach(@fields){$form{'removefields'} .= "<option value=\"$_\">$_</option>\n";}
 						$form{'action'} = "createtablefields";	#send user back to the table creation page
@@ -289,10 +291,10 @@ if(&getData()){	#get the data from the last page's form
 			elsif($form{'action'} eq "createtablenow"){	#create the table now
 				if($form{'creationfnames'}){
 					my $sql = "CREATE TABLE $form{'tables'} (";
-					my @names = split(/¬/, $form{'creationfnames'});
-					my @types = split(/¬/, $form{'creationftypes'});
-					my @sizes = split(/¬/, $form{'creationfsizes'});
-					my @nulls = split(/¬/, $form{'creationfnulls'});
+					my @names = split(/ï¿½/, $form{'creationfnames'});
+					my @types = split(/ï¿½/, $form{'creationftypes'});
+					my @sizes = split(/ï¿½/, $form{'creationfsizes'});
+					my @nulls = split(/ï¿½/, $form{'creationfnulls'});
 					for(my $count = 0; $count <= $#names; $count++){
 						$sql .= "$names[$count] $types[$count]";
 						if($sizes[$count] != 0){$sql .= "($sizes[$count])";}	#include size for this field
@@ -307,10 +309,10 @@ if(&getData()){	#get the data from the last page's form
 			}
 			elsif($form{'action'} eq "createtableremovefield"){
 				if($form{'fname'} ne ""){
-					my @names = split(/¬/, $form{'creationfnames'});
-					my @types = split(/¬/, $form{'creationftypes'});
-					my @sizes = split(/¬/, $form{'creationfsizes'});
-					my @nulls = split(/¬/, $form{'creationfnulls'});
+					my @names = split(/ï¿½/, $form{'creationfnames'});
+					my @types = split(/ï¿½/, $form{'creationftypes'});
+					my @sizes = split(/ï¿½/, $form{'creationfsizes'});
+					my @nulls = split(/ï¿½/, $form{'creationfnulls'});
 					$form{'creationfnames'} = "";
 					$form{'creationftypes'} = "";
 					$form{'creationfsizes'} = "";
@@ -323,10 +325,10 @@ if(&getData()){	#get the data from the last page's form
 								$form{'creationfnulls'} .= $nulls[$count];
 							}
 							else{
-								$form{'creationfnames'} .= "¬$names[$count]";
-								$form{'creationftypes'} .= "¬$types[$count]";
-								$form{'creationfsizes'} .= "¬$sizes[$count]";
-								$form{'creationfnulls'} .= "¬$nulls[$count]";
+								$form{'creationfnames'} .= "ï¿½$names[$count]";
+								$form{'creationftypes'} .= "ï¿½$types[$count]";
+								$form{'creationfsizes'} .= "ï¿½$sizes[$count]";
+								$form{'creationfnulls'} .= "ï¿½$nulls[$count]";
 							}
 						}
 					}
@@ -340,7 +342,7 @@ if(&getData()){	#get the data from the last page's form
 					$form{'currentfields'} = &getCreationFields();
 					$form{'removefields'} = "";
 					if($form{'creationfnames'}){	#if we have some fields already
-						@names = split(/¬/, $form{'creationfnames'});	#get the new list of names
+						@names = split(/ï¿½/, $form{'creationfnames'});	#get the new list of names
 						foreach(@names){$form{'removefields'} .= "<option value=\"$_\">$_</option>\n";}
 					}
 					$form{'action'} = "createtablefields";	#send user back to the table creation page
@@ -614,10 +616,10 @@ sub composeSelect{	#generates the sql code for a select query
 sub getCreationFields{
 	my $html = "";
 	if(exists($form{'creationfnames'})){	#user has chosen some fields already
-		my @names = split(/¬/, $form{'creationfnames'});
-		my @types = split(/¬/, $form{'creationftypes'});
-		my @sizes = split(/¬/, $form{'creationfsizes'});
-		my @nulls = split(/¬/, $form{'creationfnulls'});
+		my @names = split(/ï¿½/, $form{'creationfnames'});
+		my @types = split(/ï¿½/, $form{'creationftypes'});
+		my @sizes = split(/ï¿½/, $form{'creationfsizes'});
+		my @nulls = split(/ï¿½/, $form{'creationfnulls'});
 		for(my $count = 0; $count <= $#names; $count++){
 			$html .= "<tr><td>$names[$count]</td><td>$types[$count]";
 			if($sizes[$count] > 0){$html .= "($sizes[$count])";}	#print the size
@@ -726,7 +728,7 @@ sub createInsertForm{
 ##################################################################################################################
 sub createDumpFile{
 	if(open(EXPORT, ">dump_downloads/$form{'key'}.sql")){	#able to create the export file
-		print EXPORT "#WebMySQL $version dump\n\n";
+		print EXPORT "#WebMySQL $VERSION dump\n\n";
 		print EXPORT "#Host: $form{'host'}\n";
 		print EXPORT "#Database: $form{'database'}\n";
 		print EXPORT "#Server version: " . &getVariable($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "version") . "\n\n";
@@ -787,7 +789,7 @@ sub queueInsert{	#display the insert page and queue the pending insert records
 			print "got a total of $rCount previous records<br>\n";
 			$form{'insertdata' . $rCount} = "";
 			for(my $fCount = 0; $fCount <= $#fields; $fCount++){	#loop through all of the fields creating an insert record
-				$form{'insertdata' . $rCount} .= &toHex($form{'insert_' . $fCount}) . "¬";
+				$form{'insertdata' . $rCount} .= &toHex($form{'insert_' . $fCount}) . "ï¿½";
 			}
 			chop $form{'insertdata' . $rCount};	#get rid of the last separator
 			$form{'input'} = &createInsertForm($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $table);
@@ -805,7 +807,7 @@ sub queueInsert{	#display the insert page and queue the pending insert records
 					if($form{$key} ne ""){	#we have some data in the current record
 						my $id = $1;	#so we can delete this record
 						$form{'currentrecords'} .= "<tr>";
-						my @pFields = split(/¬/, $form{$key});
+						my @pFields = split(/ï¿½/, $form{$key});
 						for(my $pCount = 0; $pCount <= $#fields; $pCount++){	#find the different fields
 							if(defined($pFields[$pCount])){	#display the entered value
 								$pFields[$pCount] = &fromHex($pFields[$pCount]);	#convert from hex to display
