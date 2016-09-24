@@ -1,453 +1,424 @@
-#!/usr/bin/perl -Tw
-#mysql database web interface
-#use lib "webmysql_includes";
-#use lib "/usr/lib/perl5/site_perl/5.6.0/i586-linux";  #for perl2exe for the mysql module
+#!/usr/bin/perl -w
+#web interface to a mysql server
 use strict;
+use CGI;
 use DBI;
 use DBD::mysql;
-my %formData;
-$formData{'version'} = "1.7";
-$formData{'action'} = "start";	#default
-$formData{'output'} = "";
-$formData{'database'} = "";
-$formData{'username'} = "";
-$formData{'password'} = "";
-$formData{'server'} = "";
-$formData{'onload'} = "";
-my @matchHow = ("=", ">=", "<=", ">", "<", "!=", "LIKE", "REGEXP");	#how to match input
-if(&checkReferer($ENV{''})){
-&get_data;
-if($formData{"action"} eq "Use"){&show_databases;}	#list the available databases
-elsif($formData{"action"} eq "Query"){&show_tables;}	#list the available tables from the current database
-elsif($formData{"action"} eq "Describe"){&describe_table;}
-elsif($formData{"action"} eq "Join-Select"){&show_join_tables;}
-elsif($formData{"action"} eq "Select"){&compose_select;}
-elsif($formData{"action"} eq "composejoin"){&compose_join;}
-elsif($formData{"action"} eq "runselect"){&run_select;}	#display the query results
-elsif($formData{"action"} eq "runjoin"){&run_join;}
-elsif($formData{"action"} eq "Status"){&gen_query("SHOW STATUS;");}
-elsif($formData{"action"} eq "Variables"){&gen_query("SHOW VARIABLES;");}
-elsif($formData{"action"} eq "Processes"){&gen_query("SHOW PROCESSLIST;");}
-elsif($formData{"action"} eq "refresh"){	#refreshes the menu frame with new details
-	$formData{"onload"} = " onload=\"parent.menu.location='$ENV{'SCRIPT_NAME'}?action=menu&username=$formData{'username'}&password=$formData{'password'}&server=$formData{'server'}&database=$formData{'database'}'\"";
-	$formData{"action"} = "main";
+my %form;	#this user's data
+my $error;	#error flag;
+if(&getData()){	#get the data from the last page's form
+	if($form{'key'}){
+		if(&readKey($form{'key'})){	#read the server side cookie for state
+			if($form{'action'} eq "connect"){	#show login result
+				if(&testConnect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){	#mysql login detail are correct
+					&updateKey($form{'key'});
+				}
+			}
+			elsif($form{'action'} eq "mainmenu"){}	#just display a template
+			elsif($form{'action'} eq "logout"){&deleteKey($form{'key'});}	#remove the server side cookie
+			elsif($form{'action'} eq "query"){	#pick what type of query to run
+				&updateKey($form{'key'});
+			}
+			elsif($form{'action'} eq "choosetable"){	#pick what table to run the query type on
+				if(my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
+					$form{'tablelist'} = "";
+					for(my $tCount = 0; $tCount <= $#tables; $tCount++){$form{'tablelist'} .= "<tr><th><input type=\"checkbox\" name=\"table$tCount\" value=\"$tables[$tCount]\"></th><td>$tables[$tCount]</td></tr>\n";}	#convert to html format
+					&updateKey($form{'key'});
+				}
+			}
+			elsif($form{'action'} eq "choosefields"){	#pick what fields to use in the query
+				my @tablesTemp;
+				foreach my $name (keys %form){
+					if($name =~ m/^table\d+$/){push(@tablesTemp, $form{$name});}
+				}
+				if($#tablesTemp > -1){	#one or more tables have been selected
+					$form{'tables'} = join(", ", @tablesTemp);	#for the server side cookie
+					if(my @fields = &getFields($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
+						$form{'fieldlist'} = "";
+						for(my $count = 0; $count <= $#fields; $count++){$form{'fieldlist'} .= "<tr><th><input type=\"checkbox\" name=\"field" . ($count + 1) . "\" value=\"$fields[$count]\"></th><td>$fields[$count]</td></tr>\n";}	#convert to html format
+						&updateKey($form{'key'});
+					}
+				}
+				else{$error = "You did not select any tables to query";}
+			}
+			elsif($form{'action'} eq "choosecriteria"){	#pick the criteria for the query
+				if(my @fields = &getFields($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'})){
+					if($form{'tables'} =~ m/, /){	#more than one table selected, show the join options
+						my @tables = split(/, /, $form{'tables'});
+						$form{'joinlist'} = "<p>Please select how you want to join the tables to $tables[0]</p>\n";
+						$form{'joinlist'} .= "<table border=\"1\" align=\"center\" bgcolor=\"#8899DD\">\n";
+						for(my $tCount = 1; $tCount <= $#tables; $tCount++){
+							$form{'joinlist'} .= "<tr>\n";
+							$form{'joinlist'} .= "<td>left join $tables[$tCount] on</td>\n";
+							$form{'joinlist'} .= "<td>\n";
+							$form{'joinlist'} .= "<select name=\"joinfield1_$tables[$tCount]\">\n";
+							foreach(@fields){
+								if($_ !~ m/\*$/){	#ignore these fields
+									$form{'joinlist'} .= "<option value=\"$_\">$_</option>";
+								}
+							}
+							$form{'joinlist'} .= "</select>\n";
+							$form{'joinlist'} .= "</td>\n";
+							$form{'joinlist'} .= "<td>=</td>\n";
+							$form{'joinlist'} .= "<td>\n";
+							$form{'joinlist'} .= "<select name=\"joinfield2_$tables[$tCount]\">\n";
+							foreach(@fields){
+								if($_ !~ m/\*$/){	#ignore these fields
+									$form{'joinlist'} .= "<option value=\"$_\">$_</option>";
+								}
+							}
+							$form{'joinlist'} .= "</select>\n";
+							$form{'joinlist'} .= "</td>\n";
+							$form{'joinlist'} .= "</tr>\n";
+						}
+						$form{'joinlist'} .= "</table>\n";
+					}
+					else{$form{'joinlist'} = "";}	#join not used for just one table
+					$form{'criterialist'} = "";
+					for(my $count = 0; $count <= 5; $count++){
+						$form{'criterialist'} .= "<tr>";
+						$form{'criterialist'} .= "<td><select name=\"critname$count\"><option value=\"\"></option>";
+						foreach(@fields){
+							if($_ !~ m/\*$/){	#ignore these fields
+								$form{'criterialist'} .= "<option value=\"$_\">$_</option>";
+							}
+						}
+						$form{'criterialist'} .= "</select></td>";
+						$form{'criterialist'} .= "<td><select name=\"crithow$count\">";
+						foreach("=", ">=", "<=", ">", "<", "!=", "LIKE", "REGEXP"){$form{'criterialist'} .= "<option value=\"$_\">$_</option>";}
+						$form{'criterialist'} .= "</select></td>";
+						$form{'criterialist'} .= "<td><input type=\"text\" name=\"crit$count\"></td>";
+						if($count < 5){$form{'criterialist'} .= "<td><select name=\"critappend$count\"><option value=\"AND\">AND</option><option value=\"OR\">OR</option></select></td>";}
+						else{$form{'criterialist'} .= "<td>&nbsp;</td>";}
+						$form{'criterialist'} .= "</tr>\n";
+					}
+					$form{'orderbylist'} = "";
+					foreach(@fields){
+						if($_ !~ m/\*$/){	#ignore these fields
+							$form{'orderbylist'} .= "<option value=\"$_\">$_</option>\n";
+						}
+					}
+					$form{'fields'} = join(", ", @fields);	#for the server side cookie
+					&updateKey($form{'key'});
+				}
+			}
+			elsif($form{'action'} eq "runquery"){	#run the query
+				$form{'sql'} = &composeSelect();
+				$form{'queryrecords'} = &runQuery($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'sql'});
+			}
+			elsif($form{'action'} eq "managetables"){	#show table list
+				if(my @tables = &getTables($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'})){
+					$form{'tablelist'} = "";
+					foreach(@tables){	#convert to html format
+						$form{'tablelist'} .= "<tr>\n";
+						$form{'tablelist'} .= "<td>$_</td>\n";
+						$form{'tablelist'} .= "<th>\n";
+						$form{'tablelist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\" target=\"_blank\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"tables\" value=\"$_\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"action\" value=\"describe\">\n";
+						$form{'tablelist'} .= "<input type=\"submit\" value=\"Describe\">\n";
+						$form{'tablelist'} .= "</form>\n";
+						$form{'tablelist'} .= "</th>\n";
+						$form{'tablelist'} .= "<th>\n";
+						$form{'tablelist'} .= "<form action=\"$ENV{'SCRIPT_NAME'}\" method=\"POST\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"key\" value=\"$form{'key'}\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"tables\" value=\"$_\">\n";
+						$form{'tablelist'} .= "<input type=\"hidden\" name=\"action\" value=\"droptable\">\n";
+						$form{'tablelist'} .= "<input type=\"submit\" value=\"Drop\">\n";
+						$form{'tablelist'} .= "</form>\n";
+						$form{'tablelist'} .= "</th>\n";
+						$form{'tablelist'} .= "</tr>\n";
+					}
+					delete $form{'tables'};
+					&updateKey($form{'key'});
+				}
+			}
+			elsif($form{'action'} eq "describe"){	#display table list
+				if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
+					$form{'queryrecords'} = &runQuery($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "DESCRIBE $1;");
+				}
+				else{$error = "Table name contains invalid characters";}
+			}
+			elsif($form{'action'} eq "serverinfo"){	#shows processlist
+				$form{'queryrecords'} = &runQuery($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "SHOW PROCESSLIST;");
+			}
+			elsif($form{'action'} eq "droptable"){
+				if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
+					$form{'rows'} = &getTableRows($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, $form{'tables'});
+					&updateKey($form{'key'});
+				}
+				else{$error = "Table name contains invalid characters";}
+			}
+			elsif($form{'action'} eq "droptableconfirm"){
+				if($form{'answer'} eq "yes"){	#user confirmed drop
+					if($form{'tables'} =~ m/^(\w+)$/){	#safety check on table name
+						$form{'queryrecords'} = &runNonSelect($form{'host'}, $form{'user'}, $form{'password'}, $form{'database'}, "DROP TABLE $1;");
+					}
+					else{$error = "Table name contains invalid characters";}
+				}
+				else{$error = "You did not confirm that you wanted the table dropped";}
+			}
+			else{$error = "Invalid action: $form{'action'}";}	#a strange action has been found
+		}
+		&parsePage($form{'action'});
+	}
+	else{	#display the starting page
+		$form{'key'} = &createKey();	#created new server side cookie file
+		&parsePage("login");
+	}
 }
-if($formData{'output'} ne "csv" || ($formData{'output'} eq "csv" && defined($formData{'error'}))){&parse_frame($formData{'action'});}
+else{&parsePage("error");}
 exit(0);
-##########################################################################################
-sub parse_frame{
-   my $file = shift;
-   if(defined($formData{'error'})){$file = "error";}  #display the error message page as we have an error
-   elsif($file eq "runjoin"){$file = "runselect";} #join results are displayed on the same page as select results
-   $formData{'self'} = $ENV{'SCRIPT_NAME'};  #save the name of this script
+###############################################################################################################
+sub getData{	#gets cgi form data into a hash
+	my $cgi = CGI::new();
+	foreach($cgi -> param()){
+		if($cgi -> param($_) !~ m/\;/){
+			$form{$_} = $cgi -> param($_);
+		}
+		else{
+			$error = "One of the values submitted from the last page contained invalid characters";
+			return 0;
+		}
+		#print STDERR "$_ = $form{$_}\n";
+	}	#save the form data to a hash
+	return 1;
+}
+###############################################################################################################
+sub createKey{	#creates a new server side cookie
+	my $key = time;
+	if(!-e "keys/$key"){	#key does not exist already
+		if(open(COOKIE, ">keys/$key")){close(COOKIE);}
+		else{$error = "Could not create session file: $!";}
+		return $key;
+	}
+	else{$error = "New session already exists";}
+	return undef;	#must of got an error somewhere in this sub
+}
+###############################################################################################################
+sub readKey{	#read the contents of a server side cookie back into the form hash
+	if(open(COOKIE, "<keys/$_[0]")){
+		while(<COOKIE>){
+			if(m/^([A-Z]+) = (.+)$/){
+				#print STDERR "$0: cookie line: $1 = $2\n";
+				$form{lc($1)} = $2;
+			}	#store the valid lines
+			else{print STDERR "$0: Ignoring invalid session file line: $_\n";}	#log warning, not really a problem
+		}
+		close(COOKIE);
+		return 1;	#everything ok
+	}
+	else{$error = "Cant read session file: $!";}
+	return 0;
+}
+###############################################################################################################
+sub updateKey{	#saves last form's data, overwriting the existing key file
+	$_[0] =~ m/^(\d+)$/;	#untaint
+	my @wanted = ("database", "password", "host", "user", "type", "fields", "criteria", "tables");
+	if(open(COOKIE, ">keys/$1")){
+		foreach my $name (keys %form){
+			my $found = 0;
+			foreach(@wanted){	#dont save unwanted elements
+				if($name eq $_){
+					$found = 1;
+					last;
+				}
+			}
+			if($found){print COOKIE uc($name) . " = " . $form{$name} . "\n";}	#save this hash element
+		}
+		close(COOKIE);
+		return 1;	#everything ok
+	}
+	else{$error = "Cant write session file: $!";}
+	return 0;
+}
+##############################################################################################################
+sub deleteKey{
+	$_[0] =~ m/^(\d+)$/;	#untaint
+	unlink("keys/$1");
+}
+###############################################################################################################
+sub replace{	#make sure we dont get any undefined values when replacing template placeholders
+	if(defined($form{$_[0]})){return $form{$_[0]};}	#return hash value
+	else{
+		print STDERR "$0: $_[0] is undefined in placeholder replace\n";
+		return "";	#return nothing
+	}
+}
+###############################################################################################################
+sub parsePage{	#displays a html page
+	my $page = shift;
 	print "Content-type: text/html\n\n";
-   if(open(TEMPLATE, "<webmysql_templates/$file.html")){
-      while(<TEMPLATE>){
-         $_ =~ s/<!--(\w+)-->/&get_element($1)/eg;
-         $_ =~ s|</body>|<!-- @ Dumb Terminal Creations (http://www.thedumbterminal.co.uk) -->\n</body>|;
-         print;
-      }
-      close(TEMPLATE);
-   }
-	else{print "Fatal: Cant open webmysql_templates/$file.html: $!\n";}
-}
-##########################################################################################
-sub get_element{
-	if(defined($formData{$_[0]})){return $formData{$_[0]};}	#the hash element exists
-	else{	# the hash element does not exist
-		print STDERR "$0: hash element does not exist: $_[0]\n";
-		return "";
+	if($error){	#an error has not been encountered
+		$page = "error";
+		print STDERR "$0: $error\n";	#log this error too
 	}
-}
-##########################################################################################
-sub get_data{
-	my @pairs;
-	if($ENV{'REQUEST_METHOD'} eq 'POST'){
-		my $buffer;
-   	read(STDIN, $buffer, $ENV{'CONTENT_LENGTH'});
-      @pairs = split(/&/, $buffer);
-	}
-	elsif($ENV{'REQUEST_METHOD'} eq 'GET'){@pairs = split(/&/, $ENV{'QUERY_STRING'});}
-	foreach (@pairs){
-		my($name, $value) = split(/=/);
-		$name =~ tr/+/ /;
-     	$name =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
-     	$value =~ tr/+/ /;
-     	$value =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
-     	$value =~ s/<!--(.|\n)*-->//g;
-     	$value =~ s/;//g;	#so user's cant use multiple commands!
-		$formData{$name} = $value;	#store
-	}
-}
-###########################################################################################
-sub show_databases{
-	my $dbh = DBI -> connect("DBI:mysql:database=;host=$formData{'server'}", $formData{"username"}, $formData{"password"});
-	if($dbh){
-		my $query = $dbh -> prepare("SHOW DATABASES;");
-   	if($query -> execute){
-      	$formData{'databases'} = "";
-   		while(my $dbName = $query -> fetchrow_array){
-				my $first = "";
-				if($dbName eq $formData{'database'}){$first = " checked";}	#current database is selected by defualt
-				$formData{'databases'} .= "<tr><td bgcolor=\"#7777BB\"><input$first type=\"radio\" name=\"database\" value=\"$dbName\"></td><td>$dbName</td></tr>\n";
-			}
-   		$query -> finish();
+	if(open(TEMPLATE, "<templates/$page.html")){
+		while(<TEMPLATE>){	#read the file a line at a time
+			$_ =~ s/<!--self-->/$ENV{'SCRIPT_NAME'}/g;	#replace the name for this script
+			$_ =~ s/<!--server-->/$ENV{'HTTP_HOST'}/g;	#replace webserver name
+			$_ =~ s/<!--error-->/$error/g;	#replace the error message
+			$_ =~ s/<!--version-->/2.0/g;	#replace version number
+			$_ =~ s/<!--(\w+)-->/&replace($1)/eg;	#replace the placeholders in the template
+         $_ =~ s|</body>|<br><br>\n<div align="center"><font size="2">&copy; <a href="http://www.thedumbterminal.co.uk" target="_blank">Dumb Terminal Creations</a></font></div>\n</body>|;
+			print;
 		}
-		else{$formData{'error'} = $DBI::errstr;}
-		$dbh -> disconnect();
+		close(TEMPLATE);
 	}
-	else{$formData{'error'} = $DBI::errstr;}
+	else{
+		print << "(NO TEMPLATE)";
+<html>
+	<body>
+		Could not open HTML template: webmysql_templates/$page.html
+	</body>
+</html>
+(NO TEMPLATE)
+	}
 }
-###########################################################################################
-sub show_tables{
-	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
+############################################################################################################
+sub testConnect{	#tests if we can connect to the mysql server
+	my($host, $user, $password, $database) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
+	if($dbh){
+		$dbh -> disconnect();
+		return 1;
+	}
+	else{
+		$error = "Cant connect to MySQL server: " . $DBI::errstr;
+		return 0;
+	}
+}
+##########################################################################################################
+sub getTables{	#returns an array of tables for the current database
+	my($host, $user, $password, $database) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
 	if($dbh){
 		my $query = $dbh -> prepare("SHOW TABLES;");
-   	if($query -> execute){
-   		my $first = " checked";	#make the first checkbox select by default
-      	$formData{'tables'} = "";
-			while(my $tableName = $query -> fetchrow_array){
-				$formData{'tables'} .= "<tr><td bgcolor=\"#7777BB\"><input$first type=\"radio\" name=\"table\" value=\"$tableName\"></td><td>$tableName</td></tr>\n";
-				$first = "";
-			}
-   		$query -> finish();
+		if($query -> execute()){
+			my @tables;
+			while(my $table = $query -> fetchrow_array()){push(@tables, $table);}	#create an array of the tables found
+			$query -> finish();
+			return @tables;	#send back the tables to the calling sub
 		}
-		else{$formData{'error'} = $DBI::errstr;}
+		else{$error = "Cant find table list: " . $dbh -> errstr;}
 		$dbh -> disconnect();
 	}
-	else{$formData{'error'} = $DBI::errstr;}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
 }
-###########################################################################################
-sub compose_select{
-	my @matchPlus = ("OR", "AND");	#if the wants to use more than one field criteria
-	my @fieldNames;
-	my $fieldCount = 0;
-	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
+##########################################################################################################
+sub getFields{	#returns an array of tables for the current database
+	my($host, $user, $password, $database, $tables) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
 	if($dbh){
-		my $query = $dbh -> prepare("DESCRIBE $formData{'table'};");
-   	$query -> execute || print "error was " . $dbh -> errstr;
-      $formData{'rows'} = $query -> rows;
-      $formData{'showfields'} = "";
-		while(my @fieldInfo = $query -> fetchrow_array){
-			$formData{'showfields'} .= "<input type=\"checkbox\" name=\"" . $fieldCount . "_show\" value=\"$fieldInfo[0]\">$fieldInfo[0], ";
-      	push(@fieldNames, $fieldInfo[0]);
-			$fieldCount++;
-		}
-   	$query -> finish();
-		$dbh -> disconnect();
-		$formData{'fieldlist'} = "";
-		foreach(@fieldNames){$formData{'fieldlist'} .= "<option value=\"$_\">$_</option>\n";}	#create a list of all the field names
-      $formData{'critfields'} = "";
-      for(my $critCount = 0; $critCount <= 4; $critCount++){
-   		$formData{'critfields'} .= "<select name=\"" . $critCount . "_name\"><option value=\"\"> ";
-			$formData{'critfields'} .= $formData{'fieldlist'};	#add all the fields to the drop down box
-   		$formData{'critfields'} .= "</select> <select name=\"" . $critCount . "_how\">";
-			foreach(@matchHow){$formData{'critfields'} .= "<option value=\"$_\">$_";}
-      	$formData{'critfields'} .= "</select> <input type=\"text\" name=\"" . $critCount . "_value\"> ";
-			if($critCount != 4){
-				$formData{'critfields'} .= "<select name=\"" . $critCount . "_plus\"><option value=\"\"> ";
-				foreach(@matchPlus){$formData{'critfields'} .= "<option value=\"$_\">$_";}
-				$formData{'critfields'} .= "</select><br>";
+		my @fields;
+		foreach(split(/, /, $tables)){	#get the fields for all of the selected tables
+			my $query = $dbh -> prepare("DESCRIBE $_;");
+			if($query -> execute()){
+				while(my @dInfo = $query -> fetchrow_array()){push(@fields, "$_.$dInfo[0]");}	#create an array of the fields found
+				$query -> finish();
 			}
-			$formData{'critfields'} .= "\n";
+			else{
+				$error = "Cant retrieve fields list for $_ table: " . $dbh -> errstr;
+				last;
+			}
 		}
-      $formData{'orderbyoptions'} = "";
-      foreach(@fieldNames){$formData{'orderbyoptions'} .= "<option value=\"$_\">$_";}
+		$dbh -> disconnect();
+		if(!$error){return @fields;}	#send back the fields to the calling sub
 	}
-	else{$formData{'error'} = $DBI::errstr;}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
 }
 ##################################################################################################################
-sub run_select{
-	my $crit;
-	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
-	if($dbh){
-		$formData{'sql'} = "SELECT ";
-		if(defined($formData{'distinct'})){$formData{'sql'} .= "DISTINCT ";}	#distinct results only
-   	for(my $fieldCount = 0; $fieldCount < $formData{'totalfields'}; $fieldCount++){
-			if(defined($formData{$fieldCount . "_show"})){$formData{'sql'} .= $formData{$fieldCount . "_show"} . ", ";}	#add the field to the display list
-		}
-		if($formData{'sql'} eq "SELECT "){$formData{'sql'} .= "*";}	#just incase no fields where ticked
-		else{$formData{'sql'} = substr($formData{'sql'}, 0, length($formData{'sql'}) - 2);}	#get rid of the last comma and space
-		if($formData{'function'} ne "" && $formData{'groupby'} ne ""){	# use a group by field
-			if($formData{'functionfield'} ne ""){$formData{'sql'} .= ", " . $formData{'function'} . "(" . $formData{'functionfield'} . ")";}	# use a field in the group by function
-			else{$formData{'sql'} .= ", " . $formData{'function'} . "(*)";}	#use a star
-		}
-		$formData{'sql'} .= " FROM $formData{'table'}";
-		for(my $critCount = 0; $critCount <= 4; $critCount++){
-			if($formData{$critCount . "_name"} ne ""){
-				$crit .= " " . $formData{$critCount . "_name"} . " " . $formData{$critCount . "_how"} . " \"" . $formData{$critCount . "_value"} . "\"";
-				my $critCount2 = $critCount;
-				$critCount2++;
-				if($formData{$critCount . "_plus"} ne "" && $formData{$critCount2 . "_name"} ne ""){$crit .= " " . $formData{$critCount . "_plus"} . " ";}
-				else{last;}	#end criteria here
-			}
-		}
-		if($crit){$formData{'sql'} .= " WHERE" . $crit;}	#add in the criteria
-		if($formData{'function'} ne "" && $formData{'groupby'} ne ""){$formData{'sql'} .= " GROUP BY " . $formData{'groupby'};}	# use a group by field
-		if($formData{'orderby'} ne ""){	#sort the results
-			$formData{'sql'} .= " ORDER BY $formData{'orderby'}";
-			if($formData{'desc'} eq "on"){$formData{'sql'} .= " DESC";}	#reverse the sort order
-		}
-		if($formData{'limit'} ne ""){$formData{'sql'} .= " LIMIT $formData{'limit'}";}	#limit the results
-		$formData{'sql'} .= ";";
-		my $query = $dbh -> prepare($formData{'sql'});
-   	if($query -> execute){
-			if($formData{'output'} eq "csv"){   #just print plain text
-				print "Content-type: application/data\n\n";
-				print "$formData{'sql'}\n";
-		   	my $names = $query ->{'NAME'};	#all returned field names
-				for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){
-					print "\"$$names[$i]\"";
-					if($i < ($query ->{'NUM_OF_FIELDS'} - 1)){print ",";}	#add the separator
-				}
-				print "\n";
-				while(my @fieldInfo = $query -> fetchrow_array){print "\"" . join("\",\"", @fieldInfo) . "\"\n";}
-			}
-			else{	#html and drip tray
-		   	my $names = $query ->{'NAME'};	#all returned field names
-            $formData{'headings'} = "";
-				for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){$formData{'headings'} .= "<th bgcolor=\"#7777BB\">$$names[$i]</th>";}
-            $formData{'fields'} = "";
-            while(my @fieldInfo = $query -> fetchrow_array){
-					$formData{'fields'} .= "<tr>";
-					foreach(@fieldInfo){$formData{'fields'} .= "<td>$_</td>\n";}
-					$formData{'fields'} .= "</tr>\n";
-				}
-				$formData{'numfields'} = $query ->{'NUM_OF_FIELDS'};
-            $formData{'rows'} = $query -> rows;
-			}
-	  	 	$query -> finish();
-   	}
-		else{$formData{'error'} = "error was " . $dbh -> errstr . "<br>\nWith the SQL code of: $formData{'sql'}";}
-		$dbh -> disconnect();
+sub composeSelect{	#generates the sql code for a select query
+	my $code = "SELECT ";
+	if($form{'distinct'}){$code .= "DISTINCT ";}	#distinct results only
+	$code .= "$form{'fields'}";	#add the fields to show
+	if($form{'groupby'} ne "" && $form{'groupfunc'} ne "" && $form{'funcfield'} ne ""){	#user is grouping with a group function
+		$code .= ", $form{'groupfunc'}($form{'funcfield'})";
 	}
-	else{$formData{'error'} = $DBI::errstr;}
+	$code .= " FROM ";
+	my @tables = split(/, /, $form{'tables'});
+	$code .= $tables[0];
+	if($form{'tables'} =~ m/, /){
+		for(my $tCount = 1; $tCount <= $#tables; $tCount++){
+			$code .= " LEFT JOIN $tables[$tCount] ON $form{'joinfield1_' . $tables[$tCount]} = $form{'joinfield2_' . $tables[$tCount]}";
+		}
+	}
+	my $criteria = "";
+	my $count = 0;
+	while($form{'critname' . $count} ne ""){
+		$criteria .= $form{'critname' . $count} . " " . $form{'crithow' . $count} . " '" . $form{'crit' . $count} . "'";
+		if(exists($form{'critname' . ($count + 1)}) && $form{'critname' . ($count + 1)}){$criteria .= " " . $form{'critappend' . $count} . " ";}
+		$count++;
+	}
+	if($criteria ne ""){$code .= " WHERE $criteria";}
+	if($form{'groupby'} ne ""){$code .= " GROUP BY $form{'groupby'}";}	#add grouping
+	if($form{'orderby'} ne ""){
+		$code .= " ORDER BY $form{'orderby'}";	#add sorting
+		if($form{'desc'}){$code .= " DESC";}	#reverse sorting
+	}
+	$code .= ";";
+	return $code;
 }
 ##################################################################################################################
-sub describe_table{
-	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
+sub runQuery{
+	my($host, $user, $password, $database, $code) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
 	if($dbh){
-		my $query = $dbh -> prepare("DESCRIBE $formData{'table'};");
-   	$query -> execute || print "error was " . $dbh -> errstr;
-   	my $names = $query ->{'NAME'};	#all returned field names
-      $formData{'headings'} = "";
-		for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){$formData{'headings'} .= "<th>$$names[$i]</th>";}
-      $formData{'fields'} = "";
-		while(my @fieldInfo = $query -> fetchrow_array){
-			$formData{'fields'} .= "<tr>";
-			foreach(@fieldInfo){$formData{'fields'} .= "<td>$_</td>";}
-			$formData{'fields'} .= "</tr>\n";
-		}
-		$formData{'numfields'} = $query ->{'NUM_OF_FIELDS'};
-      $formData{'rows'} = $query -> rows;
-   	$query -> finish();
-		$dbh -> disconnect();
-	}
-	else{$formData{'error'} = $DBI::errstr;}
-}
-###########################################################################################
-sub show_join_tables{
-	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
-	if($dbh){
-		my $query = $dbh -> prepare("SHOW TABLES;");
-   	$query -> execute || print "error was " . $dbh -> errstr;
-		my $count = 1;
-      $formData{'tables'} = "";
-		while(my $tableName = $query -> fetchrow_array){
-			$formData{'tables'} .= "\t\t\t\t<tr><td bgcolor=\"#7777BB\">";
-			if($tableName ne $formData{'table'}){
-				$formData{'tables'} .= "<input type=\"checkbox\" name=\"table$count\" value=\"$tableName\">";	#user can select this table
-				$count++;
-			}
-			else{$formData{'tables'} .= "&nbsp;";}	#blank the cell
-			$formData{'tables'} .= "</td><td>$tableName</td></tr>\n";
-		}
-   	$query -> finish();
-		$dbh -> disconnect();
-	}
-	else{$formData{'error'} = $DBI::errstr;}
-}
-###########################################################################################
-sub compose_join{
-	my @matchPlus = ("OR", "AND");	#if the wants to use more than one field criteria
-	my @joinHow = ("LEFT JOIN", "RIGHT JOIN");	#how to join the tables
-	my @sides = ("left", "right");	#join critera
-	my @fieldNames;
-	my $fieldCount = 0;
-	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
-	if($dbh){
-      $formData{'chosentables'} = "";
-		foreach my $name (keys %formData){	#print each on the chosen tables
-			if(substr($name, 0, 5) eq "table"){$formData{'chosentables'} .= "<input type=\"hidden\" name=\"$name\" value=\"$formData{$name}\">\n";}
-		}
-		$formData{'totalfields'} = 0;
-      $formData{'showfields'} = "";
-	  	foreach my $name (keys %formData){	#list each field on the chosen tables
-			if(substr($name, 0, 5) eq "table"){
-				my $query = $dbh -> prepare("DESCRIBE $formData{$name};");
-   			$query -> execute || print "error was " . $dbh -> errstr;
-            while(my @fieldInfo = $query -> fetchrow_array){
-					$formData{'showfields'} .= "<input type=\"checkbox\" name=\"" . $fieldCount . "_show\" value=\"$formData{$name}.$fieldInfo[0]\">$formData{$name}.$fieldInfo[0], ";
-      			push(@fieldNames, "$formData{$name}.$fieldInfo[0]");
-					$fieldCount++;
+		my $query = $dbh -> prepare($code);
+		if($query -> execute()){
+			my $html = "<tr>";
+			my $names = $query ->{'NAME'};	#all returned field names
+			for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){$html .= "<th>$$names[$i]</th>";}	#get field names
+			$html .= "</tr>\n";	#finished field names
+			while(my @fields = $query -> fetchrow_array()){
+				$html .= "<tr>";
+				foreach(@fields){
+					if($_){$html .= "<td>$_</td>";}	#this field has a value
+					else{$html .= "<td>&nbsp;</td>";}	#this field has a null value
 				}
-   			$formData{'totalfields'} += $query -> rows;	#increase the total
-   			$query -> finish();
+				$html .= "</tr>\n";
 			}
+			$html .= "<tr><td align=\"center\" colspan=\"" . $query ->{'NUM_OF_FIELDS'} . "\">" . $query -> rows() . "Rows found</td></tr>\n";	#print rows found
+			$query -> finish();
+			return $html;
 		}
+		else{$error = "Problem with query: " . $dbh -> errstr;}
 		$dbh -> disconnect();
-		$formData{'fieldlist'} = "";
-		foreach(@fieldNames){$formData{'fieldlist'} .= "<option value=\"$_\">$_</option>\n";}	#create a list of all the field names
-      $formData{'joinvalues'} = "";
-	  	foreach my $name (keys %formData){	#list each field on the chosen tables
-			if(substr($name, 0, 5) eq "table" && $name ne "table0"){
-				$formData{'joinvalues'} .= "<tr>\n<th bgcolor=\"#7777BB\">JOIN</th>\n<td>\n<select name=\"$name\_join\">\n";
-				foreach(@joinHow){$formData{'joinvalues'} .= "<option value=\"$_\">$_</option>";}
-				$formData{'joinvalues'} .= "</select> $formData{$name} ";
-				$formData{'joinvalues'} .= "</td>\n</tr>\n<tr>\n<th bgcolor=\"#7777BB\">ON</th>\n<td>";
-   		   for(my $onCount = 0; $onCount <= 1; $onCount++){
-      		   foreach (@sides){
-   	 			   $formData{'joinvalues'} .= "<select name=\"$name" . $onCount . "_on$_\">";
-   				   if($onCount > 0){$formData{'joinvalues'} .= "<option value=\"\"> </option>";}
-   				   foreach(@fieldNames){$formData{'joinvalues'} .= "<option value=\"$_\">$_</option>";}
-       			   $formData{'joinvalues'} .= "</select>";
-   				   if($_ eq "left"){$formData{'joinvalues'} .= " = ";}
-   			   }
-   			   if($onCount != 1){
-   				   $formData{'joinvalues'} .= "<select name=\"$name" . $onCount . "_plus\">\n<option value=\"\"> </option>";
-   				   foreach(@matchPlus){$formData{'joinvalues'} .= "<option value=\"$_\">$_</option>";}
-   				   $formData{'joinvalues'} .= "</select><br>";
-   			   }
-   			   $formData{'joinvalues'} .= "\n";
-   		   }
-      		$formData{'joinvalues'} .= "</td>\n</tr>\n";
-      	}
-		}
-      $formData{'critfields'} = "";
-		for(my $critCount = 0; $critCount <= 4; $critCount++){
-   		$formData{'critfields'} .= "<select name=\"" . $critCount . "_name\"><option value=\"\"> </option";
-			foreach(@fieldNames){$formData{'critfields'} .= "<option value=\"$_\">$_</option>";}
-   		$formData{'critfields'} .= "</select> <select name=\"" . $critCount . "_how\">";
-			foreach(@matchHow){$formData{'critfields'} .= "<option value=\"$_\">$_</option>";}
-      	$formData{'critfields'} .= "</select> <input type=\"text\" name=\"" . $critCount . "_value\"> ";
-			if($critCount != 4){
-				$formData{'critfields'} .= "<select name=\"" . $critCount . "_plus\"><option value=\"\"> </option>";
-				foreach(@matchPlus){$formData{'critfields'} .= "<option value=\"$_\">$_</option>";}
-				$formData{'critfields'} .= "</select><br>";
-			}
-			$formData{'critfields'} .= "\n";
-		}
-      $formData{'orderbyoptions'} = "";
-		foreach(@fieldNames){$formData{'orderbyoptions'} .= "<option value=\"$_\">$_</option>";}
 	}
-	else{$formData{'error'} = $DBI::errstr;}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
 }
-##################################################################################################################
-sub run_join{
-	my $crit;
-	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
+##########################################################################################################
+sub getTableRows{	#returns how many rows in a table
+	my($host, $user, $password, $database, $table) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
 	if($dbh){
-		$formData{'sql'} = "SELECT ";
-   	for(my $fieldCount = 0; $fieldCount < $formData{'totalfields'}; $fieldCount++){
-			if(defined($formData{$fieldCount . "_show"})){$formData{'sql'} .= $formData{$fieldCount . "_show"} . ", ";}	#add the field to the display list
+		my $query = $dbh -> prepare("SELECT COUNT(*) FROM $table;");
+		my $rows;
+		if($query -> execute()){
+			$rows = $query -> fetchrow_array();
+			$query -> finish();
 		}
-		if($formData{'sql'} eq "SELECT "){	#just incase no fields where ticked
-		  	foreach my $name (keys %formData){	#list each field on the chosen tables
-				if($name =~ m/^table\d*$/){$formData{'sql'} .= $formData{$name} . ".*, ";}
-			}
-		}
-		if($formData{'function'} ne "" && $formData{'groupby'} ne ""){	# use a group by field
-			if($formData{'functionfield'} ne ""){$formData{'sql'} .= $formData{'function'} . "(" . $formData{'functionfield'} . "), ";}	# use a field in the group by function
-			else{$formData{'sql'} .= $formData{'function'} . "(*), ";}	#use a star
-		}
-	   $formData{'sql'} = substr($formData{'sql'}, 0, length($formData{'sql'}) - 2);	#get rid of the last comma and space
-		$formData{'sql'} .= " FROM $formData{'table0'}";
-	  	foreach my $name (keys %formData){	#join each of the tables
-			if($name =~ m/^table\d*$/ && $name ne "table0"){	#found a table field
-				$formData{'sql'} .= " " . $formData{$name . "_join"} . " $formData{$name} ON ";
-				for(my $joinCount = 0; $joinCount <= 2; $joinCount++){	#allow upto two criteria for joining tables
-					$formData{'sql'} .= "(" . $formData{$name . $joinCount . "_onleft"} . " = " .$formData{$name . $joinCount . "_onright"} . ")";
-					my $joinCount2 = $joinCount;
-					$joinCount2++;
-					if($formData{$name . $joinCount . "_plus"} ne "" && $formData{$name . $joinCount2 . "_onleft"} ne "" && $formData{$name . $joinCount2 . "_onright"} ne ""){$formData{'sql'} .= " " . $formData{$name . $joinCount . "_plus"} . " ";}	#put in the boolean operator
-					else{last;}	#end join criteria here
-				}
-			}
-		}
-		for(my $critCount = 0; $critCount <= 4; $critCount++){
-			if($formData{$critCount . "_name"} ne ""){
-				$crit .= " " . $formData{$critCount . "_name"} . " " . $formData{$critCount . "_how"} . " \"" . $formData{$critCount . "_value"} . "\"";
-				my $critCount2 = $critCount;
-				$critCount2++;
-				if($formData{$critCount . "_plus"} ne "" && $formData{$critCount2 . "_name"} ne ""){$crit .= " " . $formData{$critCount . "_plus"} . " ";}
-				else{last;}	#end criteria here
-			}
-		}
-		if($crit){$formData{'sql'} .= " WHERE" . $crit;}	#add in the criteria
-		if($formData{'function'} ne "" && $formData{'groupby'} ne ""){$formData{'sql'} .= " GROUP BY " . $formData{'groupby'};}	# use a group by field
-		if($formData{'orderby'} ne ""){	#sort the results
-			$formData{'sql'} .= " ORDER BY $formData{'orderby'}";
-			if($formData{'desc'} eq "on"){$formData{'sql'} .= " DESC";}	#reverse the sort order
-		}
-		if($formData{'limit'} ne ""){$formData{'sql'} .= " LIMIT $formData{'limit'}";}	#limit the results
-		$formData{'sql'} .= ";";
-		my $query = $dbh -> prepare($formData{'sql'});
-   	if($query -> execute){
-			if($formData{'output'} eq "csv"){
-				print "Content-type: application/data\n\n";
-				print "$formData{'sql'}\n";
-		   	my $names = $query ->{'NAME'};	#all returned field names
-				for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){
-					print "\"$$names[$i]\"";
-					if($i < ($query ->{'NUM_OF_FIELDS'} - 1)){print ",";}	#add the separator
-				}
-				print "\n";
-				while(my @fieldInfo = $query -> fetchrow_array){print "\"" . join("\",\"", @fieldInfo) . "\"\n";}
-			}
-			else{	#html and drip tray
-		   	my $names = $query ->{'NAME'};	#all returned field names
-            $formData{'headings'} = "";
-            for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){$formData{'headings'} .= "<th bgcolor=\"#7777BB\">$$names[$i]</th>";}
-				$formData{'headings'} .= "</tr>\n";
-				$formData{'fields'} = "";
-				while(my @fieldInfo = $query -> fetchrow_array){
-					$formData{'fields'} .= "<tr>";
-					foreach(@fieldInfo){$formData{'fields'} .= "<td>$_</td>\n";}
-					$formData{'fields'} .= "</tr>\n";
-				}
-				$formData{'numfields'} = $query ->{'NUM_OF_FIELDS'};
-            $formData{'rows'} = $query -> rows;
-			}
-	  	 	$query -> finish();
-   	}
-		else{$formData{'error'} = "error was " . $dbh -> errstr . "<br>\nWith the SQL code of: $formData{'sql'}";}
+		else{$error = "Cant retrieve number of rows for $_ table: " . $dbh -> errstr;}
 		$dbh -> disconnect();
+		if(!$error){return $rows;}	#send back the fields to the calling sub
 	}
-	else{$formData{'error'} = $DBI::errstr;}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
 }
-#########################################################################################################################################
-sub gen_query{
-	my $qString = shift;
-	my $dbh = DBI -> connect("DBI:mysql:database=$formData{'database'};host=$formData{'server'}", $formData{"username"}, $formData{"password"});
+#############################################################################################################
+sub runNonSelect{
+	my($host, $user, $password, $database, $code) = @_;
+	my $dbh = DBI -> connect("DBI:mysql:database=$database;host=$host", $user, $password);
 	if($dbh){
-		my $query = $dbh -> prepare($qString);
-   	if($query -> execute){
-	   	my $names = $query ->{'NAME'};	#all returned field names
-         $formData{'headings'} = "";
-         for(my $i = 0;  $i < $query ->{'NUM_OF_FIELDS'};  $i++){$formData{'headings'} .= "<th bgcolor=\"#7777BB\">$$names[$i]</th>";}
-			$formData{'headings'} .= "</tr>\n";
-			$formData{'fields'} = "";
-			while(my @fieldInfo = $query -> fetchrow_array){
-				$formData{'fields'} .= "<tr>";
-				foreach(@fieldInfo){$formData{'fields'} .= "<td>$_</td>\n";}
-				$formData{'fields'} .= "</tr>\n";
-			}
-			$formData{'numfields'} = $query ->{'NUM_OF_FIELDS'};
-         $formData{'rows'} = $query -> rows;
-	  	 	$query -> finish();
-   	}
-		else{$formData{'error'} = "error was " . $dbh -> errstr . "<br>\nWith the SQL code of: $qString";}
+		my $affected;
+		if(!($affected = $dbh -> do($code))){$error = "Problem with query: " . $dbh -> errstr;}
 		$dbh -> disconnect();
+		if(!$error){return $affected;}	#send back the fields to the calling sub
 	}
-	else{$formData{'error'} = $DBI::errstr;}
+	else{$error = "Cant connect to MySQL server: " . $DBI::errstr;}
+	return undef;
 }

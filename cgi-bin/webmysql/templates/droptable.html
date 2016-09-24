@@ -1,0 +1,34 @@
+<html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="/webmysql-2.0/main.css" title="Main">
+		<title>WebMySQL: Drop table</title>
+	</head>
+	<body>
+		<table align="center" bgcolor="#8899DD" width="100%" border="1">
+			<tr>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=query">Query</a></th>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=managetables">Manage tables</a></th>
+				<th>Manage databases</th>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=serverinfo">Server information</a></th>
+				<th><a href="<!--self-->?key=<!--key-->&amp;action=logout">Logout</a></th>
+			</tr>
+		</table>
+		<p>
+			Are you sure you wish to drop the following table?
+			<dir><b><!--tables--></b></dir>
+			It contains <b><!--rows--></b> rows of data.
+		</p>
+		<form action="<!--self-->" method="POST">
+			<input type="hidden" name="key" value="<!--key-->">
+			<input type="hidden" name="action" value="droptableconfirm">
+			<table align="center" bgcolor="#8899DD" border="1">
+				<tr><th><input checked type="radio" name="answer" value="no"></th><td>No</td></tr>
+				<tr><th><input type="radio" name="answer" value="yes"></th><td>Yes</td></tr>
+			</table>
+			<br>
+			<table align="center" bgcolor="#8899DD" border="1">
+				<tr><td><input type="submit" value="Continue"></td></tr>
+			</table>
+		</form>
+	</body>
+</html>
