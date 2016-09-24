@@ -3,6 +3,7 @@
 	<body bgcolor="#FFFFFF" background="/webmysql_back.jpg">
       <center>
 		   <h1>Compose Join-Select Query for <!--table0-->:</h1>
+         <p>Chose how your tables will be joined.</p>
 		   <form action="<!--self-->" method="post">
 			   <input type="hidden" name="action" value="runjoin">
 			   <input type="hidden" name="username" value="<!--username-->">
@@ -16,13 +17,23 @@
                   <td>
    		            <table border="1" align="center" width="100%">
                         <tr>
+                        <!--joinvalues-->
+                     </table>
+                 </td>
+               </tr>
+            </table>
+            <br>
+	         <p>Chose your criteria to filter the results.</p>
+   			<table align="center" bgcolor="#8899DD" width="75%">
+               <tr>
+                  <td>
+   		            <table border="1" align="center" width="100%">
+                        <tr>
 					            <th valign="top" bgcolor="#7777BB">SELECT</th>
 					            <td>
                               <!--showfields-->
 					            </td>
 				            </tr>
-                        <tr>
-                        <!--joinvalues-->
 				            <tr>
 					            <th valign="top" bgcolor="#7777BB">WHERE</th>
 					            <td>
