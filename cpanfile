@@ -1,4 +1,5 @@
 requires 'Module::Build::Pluggable';
+requires 'Module::Build::Pluggable::CPANfile';
 requires 'CGI::Compile';
 requires 'CGI::Emulate::PSGI';
 requires 'CGI';
