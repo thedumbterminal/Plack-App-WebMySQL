@@ -9,3 +9,6 @@
 /htdocs/webmysql/*.gz
 /htdocs/webmysql/*.min.css
 /MANIFEST.bak
+/Makefile.PL
+/META.json
+/META.yml
