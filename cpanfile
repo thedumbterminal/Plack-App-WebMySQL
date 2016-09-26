@@ -9,5 +9,5 @@ requires 'Plack::Builder';
 requires 'Plack::App::MCCS';
 
 on 'test' => sub {
-
+	requires 'Test::More';
 };

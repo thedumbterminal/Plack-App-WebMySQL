@@ -8,6 +8,12 @@ Web based MySQL interface.
     ./Build installdeps
 
 ## Usage
+As a module:
+
+    use Plack::App::WebMySQL;
+    my $app = Plack::App::WebMySQL->new()->to_app;
+
+Standalone:
 
     plackup
     

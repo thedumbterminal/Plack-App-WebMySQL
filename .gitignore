@@ -8,3 +8,4 @@
 /htdocs/webmysql/*.etag
 /htdocs/webmysql/*.gz
 /htdocs/webmysql/*.min.css
+/MANIFEST.bak
