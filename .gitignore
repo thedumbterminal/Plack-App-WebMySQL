@@ -5,3 +5,6 @@
 /blib/
 /MANIFEST
 /MANIFEST.SKIP.bak
+/htdocs/webmysql/*.etag
+/htdocs/webmysql/*.gz
+/htdocs/webmysql/*.min.css

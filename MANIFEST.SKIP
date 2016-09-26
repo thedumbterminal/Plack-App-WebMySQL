@@ -82,3 +82,4 @@ htdocs\/webmysql\/.+\.gz$
 htdocs\/webmysql\/.+.min.css$
 
 .travis.yml
+.project
