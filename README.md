@@ -1,4 +1,6 @@
-# WebMySQL
+# Plack::App::WebMySQL
+
+[![Build Status](https://travis-ci.org/thedumbterminal/Plack-App-WebMySQL.svg?branch=master)](https://travis-ci.org/thedumbterminal/Plack-App-WebMySQL)
 
 Web based MySQL interface.
 
