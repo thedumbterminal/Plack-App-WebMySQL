@@ -5,6 +5,4 @@ cache:
   - perl_modules
 before_install:
 - cpanm local::lib
-- perl -Mlocal::lib=${PWD}/perl_modules
 - eval "$(perl -Mlocal::lib=${PWD}/perl_modules)"
-
