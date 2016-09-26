@@ -1,2 +1,7 @@
 sudo: false
 language: perl
+
+before_install:
+- cpanm local::lib
+- perl -Mlocal::lib
+- eval "$(perl -Mlocal::lib)"
