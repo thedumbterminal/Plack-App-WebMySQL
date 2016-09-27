@@ -8,17 +8,22 @@ use CGI::Emulate::PSGI;
 use Plack::Builder;
 use Plack::App::MCCS;
 use Exporter();
+use File::Share ':all';
+use File::Spec;
 our %form;	#data from the previous page
 our $error = "";	#error flag
-our $VERSION ="3.0";	#version of this software
+our $VERSION ="3.01";	#version of this software
 our @ISA = qw(Exporter);
 our @EXPORT = qw(%form $error $VERSION);
 ###############################################################################
 sub new{
-	my $sub = CGI::Compile->compile("./cgi-bin/webmysql/webmysql.cgi");
+	my $script = dist_file('Plack-App-WebMySQL', 'cgi-bin/webmysql/webmysql.cgi');
+	my $sub = CGI::Compile->compile($script);
 	my $app = CGI::Emulate::PSGI->handler($sub);
 
-	my $staticApp = Plack::App::MCCS->new(root => "./htdocs/webmysql")->to_app;
+	my $staticDir = dist_dir('Plack-App-WebMySQL');
+	$staticDir = File::Spec->catdir($staticDir, 'htdocs', 'webmysql');
+	my $staticApp = Plack::App::MCCS->new(root => $staticDir)->to_app;
 		
 	my $builder = Plack::Builder->new();
 	$builder->mount("/webmysql" => $staticApp);	

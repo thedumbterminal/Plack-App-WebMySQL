@@ -7,6 +7,8 @@ requires 'DBI';
 requires 'DBD::mysql';
 requires 'Plack::Builder';
 requires 'Plack::App::MCCS';
+requires 'File::Share';
+requires 'File::Spec';
 
 on 'test' => sub {
 	requires 'Test::More';

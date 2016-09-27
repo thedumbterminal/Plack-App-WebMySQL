@@ -9,6 +9,7 @@ my $build = Module::Build::Pluggable->new(
 	dist_author => 'MacGyveR <dumb@cpan.org>',
 	dist_abstract => 'WebMySQL web application',
 	create_makefile_pl => 'traditional',
+	share_dir => 'share',
 	meta_merge => {
 		resources => {
 			repository => 'https://github.com/thedumbterminal/Plack-App-WebMySQL'

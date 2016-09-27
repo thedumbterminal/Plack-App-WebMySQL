@@ -5,9 +5,9 @@
 /blib/
 /MANIFEST
 /MANIFEST.SKIP.bak
-/htdocs/webmysql/*.etag
-/htdocs/webmysql/*.gz
-/htdocs/webmysql/*.min.css
+/share/htdocs/webmysql/*.etag
+/share/htdocs/webmysql/*.gz
+/share/htdocs/webmysql/*.min.css
 /MANIFEST.bak
 /Makefile.PL
 /META.json
