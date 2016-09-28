@@ -12,7 +12,7 @@ use File::Share ':all';
 use File::Spec;
 our %form;	#data from the previous page
 our $error = "";	#error flag
-our $VERSION ="3.01";	#version of this software
+our $VERSION ="3.02";	#version of this software
 our @ISA = qw(Exporter);
 our @EXPORT = qw(%form $error $VERSION);
 ###############################################################################
@@ -22,12 +22,12 @@ sub new{
 	my $app = CGI::Emulate::PSGI->handler($sub);
 
 	my $staticDir = dist_dir('Plack-App-WebMySQL');
-	$staticDir = File::Spec->catdir($staticDir, 'htdocs', 'webmysql');
+	$staticDir = File::Spec->catdir($staticDir, 'htdocs');
 	my $staticApp = Plack::App::MCCS->new(root => $staticDir)->to_app;
 		
 	my $builder = Plack::Builder->new();
-	$builder->mount("/webmysql" => $staticApp);	
-	$builder->mount("/" => $app);
+	$builder->mount("/app" => $app);	
+	$builder->mount("/" => $staticApp);
 	return $builder;
 }
 ###############################################################################

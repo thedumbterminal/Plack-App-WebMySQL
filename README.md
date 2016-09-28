@@ -19,6 +19,8 @@ Standalone:
 
     plackup
     
+The browse to [http://localhost:5000/app](http://localhost:5000/app)
+    
 ## Customising
 
 Any of the html files in the `cgi-bin/webmysql/templates` subdirectory may be modified. Please do not rename them or alter the comments in the page
@@ -28,4 +30,6 @@ You may also change the name of the webmysql program itself, this should be done
 
 ## Running on Heroku
 
-heroku config:set BUILDPACK_URL=https://github.com/miyagawa/heroku-buildpack-perl --app webmysql
+Only setting the correct buildpack is required:
+
+    heroku config:set BUILDPACK_URL=https://github.com/miyagawa/heroku-buildpack-perl --app yourappname
