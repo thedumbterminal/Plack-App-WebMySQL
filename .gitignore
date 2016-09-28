@@ -8,6 +8,8 @@
 /share/htdocs/*.etag
 /share/htdocs/*.gz
 /share/htdocs/*.min.css
+/share/cgi-bin/webmysql/keys/*
+^/share/cgi-bin/webmysql/keys/.gitkeep
 /MANIFEST.bak
 /Makefile.PL
 /META.json

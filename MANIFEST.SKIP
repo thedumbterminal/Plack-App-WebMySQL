@@ -77,9 +77,9 @@
 .includepath
 
 cgi-bin\/webmysql\/keys/\d+$
-htdocs\/webmysql\/.+\.etag$
-htdocs\/webmysql\/.+\.gz$
-htdocs\/webmysql\/.+.min.css$
+htdocs\/.+\.etag$
+htdocs\/.+\.gz$
+htdocs\/.+.min.css$
 
 .travis.yml
 .project
