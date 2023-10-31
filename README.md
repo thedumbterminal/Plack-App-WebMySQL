@@ -25,8 +25,14 @@ Configure perl:
 
 ### App
 
+Install:
+
     perl Build.PL
     ./Build installdeps --cpan_client 'cpanm --notest'
+
+Run tests:
+
+    ./Build test
 
 ## Usage
 
