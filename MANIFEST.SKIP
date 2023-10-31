@@ -83,3 +83,7 @@ htdocs\/.+.min.css$
 
 .travis.yml
 .project
+local
+
+#avoid own docs
+how_to_release.txt
